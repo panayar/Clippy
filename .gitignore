@@ -1,0 +1,69 @@
+# macOS
+.DS_Store
+*.swp
+.Trash/
+
+# Xcode user data
+xcuserdata/
+*.xcuserstate
+.swiftpm/
+
+# Swift build artifacts
+mac-app/ClippyBar/.build/
+
+# Node / Next.js
+web/node_modules/
+web/.next/
+web/out/
+
+# Environment & secrets
+.env
+.env.*
+.env.local
+.env*.local
+
+# Build artifacts
+build/
+*.dmg
+
+# Signing & certificates
+*.p12
+*.pem
+*.key
+*.cer
+*.csr
+*.certSigningRequest
+*.provisionprofile
+*.mobileprovision
+*.keystore
+*.jks
+
+# API keys & secrets
+*.secret
+*.credentials
+credentials.json
+service-account*.json
+*_rsa
+*_rsa.pub
+*_dsa
+*_ed25519
+*.gpg
+
+# AI agents
+.claude/
+CLAUDE.md
+AGENTS.md
+**/CLAUDE.md
+**/AGENTS.md
+
+# Vercel
+.vercel/
+
+# IDE
+.idea/
+.vscode/
+*.sublime-*
+
+# Logs
+*.log
+npm-debug.log*

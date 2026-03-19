@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Application identifier — must match provisioning profile -->
+    <key>com.apple.application-identifier</key>
+    <string>477PL8P3CL.com.clipbar.app</string>
+
+    <!-- Team identifier -->
+    <key>com.apple.developer.team-identifier</key>
+    <string>477PL8P3CL</string>
+
+    <!-- App Sandbox — required for Mac App Store -->
+    <key>com.apple.security.app-sandbox</key>
+    <true/>
+
+    <!-- Read/write access to the app's container (for SQLite DB + images) -->
+    <key>com.apple.security.files.user-selected.read-write</key>
+    <true/>
+</dict>
+</plist>

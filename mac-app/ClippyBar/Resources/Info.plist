@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleName</key>
+    <string>ClippyBar</string>
+    <key>CFBundleDisplayName</key>
+    <string>ClippyBar</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.clipbar.app</string>
+    <key>CFBundleVersion</key>
+    <string>6</string>
+    <key>CFBundleShortVersionString</key>
+    <string>1.2.1</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
+    <key>CFBundleIconName</key>
+    <string>AppIcon</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleExecutable</key>
+    <string>ClippyBar</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>13.0</string>
+    <key>LSUIElement</key>
+    <true/>
+    <key>LSApplicationCategoryType</key>
+    <string>public.app-category.productivity</string>
+    <key>NSAccessibilityUsageDescription</key>
+    <string>ClippyBar needs accessibility access to simulate paste actions (Cmd+V) for the auto-paste feature. Global hotkeys work without this permission.</string>
+    <key>NSHumanReadableCopyright</key>
+    <string>Copyright 2026 ClippyBar. All rights reserved.</string>
+    <key>ITSAppUsesNonExemptEncryption</key>
+    <false/>
+</dict>
+</plist>
