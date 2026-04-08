@@ -21,14 +21,14 @@ hdiutil detach "$MOUNT_DIR" -quiet 2>/dev/null || true
 
 # Download via GitHub API (avoids redirect issues)
 echo "  ↓ Downloading $APP_NAME..."
-DMG_URL=$(curl -fsSL "https://api.github.com/repos/panayar/ClippyBar/releases/latest" \
+DMG_URL=$(curl -fsSL "https://api.github.com/repos/panayar/Clippy/releases/latest" \
   | grep -o '"browser_download_url":\s*"[^"]*\.dmg"' \
   | head -1 \
   | sed 's/"browser_download_url":\s*"//;s/"$//')
 
 if [ -z "$DMG_URL" ]; then
   echo "  ✗ Error: Could not find download URL."
-  echo "    Check https://github.com/panayar/ClippyBar/releases"
+  echo "    Check https://github.com/panayar/Clippy/releases"
   exit 1
 fi
 

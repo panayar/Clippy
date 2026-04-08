@@ -11,8 +11,8 @@
 
 <p align="center">
   <a href="https://apps.apple.com/co/app/clippybar/id6760884112?l=en-GB&mt=12"><img src="https://img.shields.io/badge/Mac_App_Store-Download-007AFF?style=flat-square&logo=apple&logoColor=white" alt="Mac App Store" /></a>
-  <a href="https://github.com/panayar/ClippyBar/stargazers"><img src="https://img.shields.io/github/stars/panayar/ClippyBar?style=flat-square&color=FFD60A" alt="Stars" /></a>
-  <a href="https://github.com/panayar/ClippyBar/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License" /></a>
+  <a href="https://github.com/panayar/Clippy/stargazers"><img src="https://img.shields.io/github/stars/panayar/Clippy?style=flat-square&color=FFD60A" alt="Stars" /></a>
+  <a href="https://github.com/panayar/Clippy/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License" /></a>
   <img src="https://img.shields.io/badge/macOS-13%2B-000?style=flat-square&logo=apple&logoColor=white" alt="macOS 13+" />
 </p>
 

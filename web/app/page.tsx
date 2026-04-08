@@ -577,7 +577,7 @@ function Act1Hook() {
                 </span>
               </div>
               <a
-                href="https://github.com/panayar/ClipBar"
+                href="https://github.com/panayar/Clippy"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="github-star-btn"
@@ -1384,7 +1384,7 @@ function Footer() {
           <span style={{ fontSize: 13, color: "#86868B" }}>
             Made with <span style={{ color: "#FF2D55" }}>&hearts;</span> by{" "}
             <a
-              href="https://github.com/panayar/ClipBar"
+              href="https://github.com/panayar/Clippy"
               target="_blank"
               rel="noopener noreferrer"
               style={{ color: "#86868B", textDecoration: "none" }}
