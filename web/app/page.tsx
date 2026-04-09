@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import dynamic from "next/dynamic";
 
 const GradientBackground = dynamic(() => import("shadergradient").then((mod) => {
@@ -192,38 +192,6 @@ function CheckmarkIcon() {
 // TODO: Replace with actual App Store ID once available
 const APP_STORE_URL = "https://apps.apple.com/app/clippybar/id#"; // placeholder
 
-const demoClipboardItems = [
-  {
-    text: "const api = await fetch(...)",
-    label: "CODE",
-    pillClass: "pill-code",
-    time: "5s ago",
-  },
-  {
-    text: "https://github.com/clipbar",
-    label: "URL",
-    pillClass: "pill-url",
-    time: "2m ago",
-  },
-  {
-    text: "Meeting notes: Q4 planning...",
-    label: "NOTE",
-    pillClass: "pill-note",
-    time: "8m ago",
-  },
-  {
-    text: "ssh deploy@prod.server.com",
-    label: "CMD",
-    pillClass: "pill-cmd",
-    time: "15m ago",
-  },
-  {
-    text: "hello@clippy.bar",
-    label: "EMAIL",
-    pillClass: "pill-email",
-    time: "1h ago",
-  },
-];
 
 const tabData = [
   {
@@ -438,17 +406,134 @@ function Navigation() {
 /*  ACT 1: THE HOOK — Hero + Live Demo (~100vh)                        */
 /* ------------------------------------------------------------------ */
 
+function HeroAppMockup() {
+  return (
+    <div className="hero-mockup-wrapper">
+      {/* macOS desktop frame */}
+      <div className="hero-desktop-frame">
+        {/* Menu bar */}
+        <div style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "4px 16px",
+          background: "rgba(30,30,40,0.95)",
+          backdropFilter: "blur(20px)",
+          fontSize: 13,
+          color: "rgba(255,255,255,0.9)",
+          fontWeight: 500,
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="rgba(255,255,255,0.9)">
+              <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
+            </svg>
+            <span>Finder</span>
+            <span style={{ opacity: 0.7 }}>File</span>
+            <span style={{ opacity: 0.7 }}>Edit</span>
+            <span style={{ opacity: 0.7 }}>View</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <ClippyBarLogo size={16} fill="rgba(255,255,255,0.9)" />
+            <span style={{ fontSize: 12, opacity: 0.7 }}>Tue 3:42 PM</span>
+          </div>
+        </div>
+
+        {/* Desktop wallpaper area */}
+        <div style={{
+          position: "relative",
+          background: "linear-gradient(135deg, #1a1a2e 0%, #16213e 40%, #0f3460 100%)",
+          minHeight: 420,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          overflow: "hidden",
+        }}>
+          {/* Soft glow spots on wallpaper */}
+          <div style={{ position: "absolute", top: "20%", left: "30%", width: 300, height: 300, borderRadius: "50%", background: "radial-gradient(circle, rgba(88,86,214,0.15) 0%, transparent 70%)", filter: "blur(40px)", pointerEvents: "none" }} />
+          <div style={{ position: "absolute", bottom: "10%", right: "20%", width: 250, height: 250, borderRadius: "50%", background: "radial-gradient(circle, rgba(0,122,255,0.1) 0%, transparent 70%)", filter: "blur(40px)", pointerEvents: "none" }} />
+
+          {/* ClippyBar picker window — centered on desktop */}
+          <div style={{
+            background: "rgba(255,255,255,0.97)",
+            borderRadius: 12,
+            boxShadow: "0 25px 80px rgba(0,0,0,0.35), 0 0 0 0.5px rgba(255,255,255,0.1)",
+            width: "min(400px, 80%)",
+            overflow: "hidden",
+          }}>
+            {/* Title bar */}
+            <div style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              padding: "12px 16px",
+              borderBottom: "0.5px solid rgba(0,0,0,0.08)",
+            }}>
+              <div className="macos-dots">
+                <div className="macos-dot macos-dot-red" />
+                <div className="macos-dot macos-dot-yellow" />
+                <div className="macos-dot macos-dot-green" />
+              </div>
+              <div style={{
+                flex: 1,
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                background: "rgba(0,0,0,0.04)",
+                borderRadius: 8,
+                padding: "6px 10px",
+              }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#86868B" strokeWidth="2">
+                  <circle cx="11" cy="11" r="8" />
+                  <path d="m21 21-4.35-4.35" />
+                </svg>
+                <span style={{ fontSize: 13, color: "#86868B" }}>Search clipboard...</span>
+              </div>
+            </div>
+
+            {/* Pinned section */}
+            <div style={{ padding: "6px 12px 2px", fontSize: 10, color: "#86868B", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600 }}>Pinned</div>
+            {[
+              { text: "ssh deploy@prod.server.com", label: "CMD", cls: "pill-cmd" },
+              { text: "hello@clippy.bar", label: "EMAIL", cls: "pill-email" },
+            ].map((item, i) => (
+              <div key={i} style={{
+                display: "flex", alignItems: "center", height: 40, padding: "0 12px", gap: 10, margin: "0 8px", borderRadius: 8,
+                background: "rgba(255,149,0,0.04)",
+              }}>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="#FF9500" stroke="#FF9500" strokeWidth="2"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16h14v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 2-2H6a2 2 0 0 0 2 2 1 1 0 0 1 1 1z"/></svg>
+                <span style={{ flex: 1, fontSize: 13, fontFamily: "SF Mono, Menlo, monospace", color: "#1D1D1F", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.text}</span>
+                <span className={`pill-badge ${item.cls}`} style={{ fontSize: 10 }}>{item.label}</span>
+              </div>
+            ))}
+
+            {/* Recent section */}
+            <div style={{ padding: "8px 12px 2px", fontSize: 10, color: "#86868B", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, borderTop: "0.5px solid rgba(0,0,0,0.06)", marginTop: 4 }}>Recent</div>
+            {[
+              { text: "const api = await fetch(...)", label: "CODE", cls: "pill-code", active: true },
+              { text: "https://github.com/clipbar", label: "URL", cls: "pill-url", active: false },
+              { text: "Meeting notes: Q4 planning...", label: "NOTE", cls: "pill-note", active: false },
+            ].map((item, i) => (
+              <div key={i} style={{
+                display: "flex", alignItems: "center", height: 40, padding: "0 12px", gap: 10, margin: "0 8px", borderRadius: 8,
+                background: item.active ? "rgba(0,122,255,0.06)" : "transparent",
+              }}>
+                <span style={{ flex: 1, fontSize: 13, fontFamily: "SF Mono, Menlo, monospace", color: item.active ? "#007AFF" : "#1D1D1F", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.text}</span>
+                <span className={`pill-badge ${item.cls}`} style={{ fontSize: 10 }}>{item.label}</span>
+              </div>
+            ))}
+            <div style={{ height: 8 }} />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Act1Hook() {
-  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
-  const [clickedIndex, setClickedIndex] = useState<number | null>(null);
-  const [displayedText, setDisplayedText] = useState("");
-  const [isTyping, setIsTyping] = useState(false);
-  const typingRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [starCount, setStarCount] = useState<number | null>(null);
   const [gradientKey, setGradientKey] = useState(() => Date.now());
 
   useEffect(() => {
-    // Remount gradient on back/forward navigation or bfcache restore
     const onPageShow = (e: PageTransitionEvent) => {
       if (e.persisted) setGradientKey((k) => k + 1);
     };
@@ -457,7 +542,7 @@ function Act1Hook() {
   }, []);
 
   useEffect(() => {
-    fetch("https://api.github.com/repos/panayar/ClipBar")
+    fetch("https://api.github.com/repos/panayar/Clippy")
       .then((r) => r.ok ? r.json() : null)
       .then((data) => {
         if (data?.stargazers_count != null) setStarCount(data.stargazers_count);
@@ -465,57 +550,18 @@ function Act1Hook() {
       .catch(() => {});
   }, []);
 
-  const handleItemClick = useCallback(
-    (index: number) => {
-      if (isTyping) return;
-
-      setSelectedIndex(index);
-      setClickedIndex(index);
-      setIsTyping(true);
-      setDisplayedText("");
-
-      // Remove clicked class after animation
-      setTimeout(() => setClickedIndex(null), 400);
-
-      if (typingRef.current) clearTimeout(typingRef.current);
-
-      const fullText = demoClipboardItems[index].text;
-      let charIndex = 0;
-
-      function typeNext() {
-        charIndex++;
-        setDisplayedText(fullText.slice(0, charIndex));
-        if (charIndex < fullText.length) {
-          const delay = Math.random() * 20 + 15;
-          typingRef.current = setTimeout(typeNext, delay);
-        } else {
-          setIsTyping(false);
-        }
-      }
-
-      typingRef.current = setTimeout(typeNext, 150);
-    },
-    [isTyping]
-  );
-
-  useEffect(() => {
-    return () => {
-      if (typingRef.current) clearTimeout(typingRef.current);
-    };
-  }, []);
-
   return (
     <section
       className="hero-section"
       style={{
-        display: "flex",
-        alignItems: "center",
         position: "relative",
         zIndex: 1,
         overflow: "hidden",
+        display: "flex",
+        flexDirection: "column",
       }}
     >
-      {/* Shader gradient background — remounts on bfcache restore */}
+      {/* Shader gradient background */}
       <div
         key={gradientKey}
         style={{
@@ -531,324 +577,78 @@ function Act1Hook() {
       >
         <GradientBackground />
       </div>
-      <div className="mx-auto max-w-[1200px] px-4 sm:px-6 lg:px-8 w-full" style={{ position: "relative", zIndex: 1 }}>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr",
-            gap: 48,
-            alignItems: "center",
-          }}
-          className="lg:!grid-cols-[45%_55%]"
-        >
-          {/* LEFT: Messaging */}
-          <div className="hero-text-enter">
-            {/* Built for macOS pill + GitHub Star */}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                marginBottom: 24,
-                flexWrap: "wrap",
-              }}
-            >
-              <div
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 8,
-                  padding: "6px 14px",
-                  borderRadius: 100,
-                  background: "rgba(255,255,255,0.15)",
-                  border: "1px solid rgba(255,255,255,0.2)",
-                }}
-              >
-                <span
-                  style={{
-                    fontSize: 12,
-                    color: "rgba(255,255,255,0.9)",
-                    letterSpacing: "0.06em",
-                    fontWeight: 500,
-                    textTransform: "uppercase",
-                  }}
-                >
-                  Built for macOS
-                </span>
-              </div>
-              <a
-                href="https://github.com/panayar/Clippy"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="github-star-btn"
-              >
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="rgba(255,255,255,0.9)">
-                  <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
-                </svg>
-                <span style={{ fontSize: 14, fontWeight: 500, color: "rgba(255,255,255,0.95)", letterSpacing: "0.01em" }}>Star</span>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="#FFD60A">
-                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-                </svg>
-                {starCount !== null && (
-                  <span style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.85)", marginLeft: 2 }}>
-                    {starCount}
-                  </span>
-                )}
-              </a>
-            </div>
 
-            {/* Headline */}
-            <h1
-              style={{
-                fontSize: "clamp(2rem, 7vw, 5.5rem)",
-                fontWeight: 600,
-                color: "#ffffff",
-                letterSpacing: "-0.03em",
-                lineHeight: 1.05,
-                margin: 0,
-                textAlign: "left",
-              }}
-            >
-              Everything you copy, instantly recalled.
+      {/* Content overlay */}
+      <div style={{ position: "relative", zIndex: 1, flex: 1, display: "flex", flexDirection: "column" }}>
+        {/* Top section: text + app mockup */}
+        <div className="mx-auto max-w-[1200px] px-4 sm:px-6 lg:px-8 w-full" style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", paddingTop: 80 }}>
+          {/* Bold headline overlaid */}
+          <div className="hero-text-enter" style={{ marginBottom: 40 }}>
+            <h1 className="hero-headline">
+              EVERYTHING{" "}
+              <span style={{ color: "rgba(175,130,255,0.9)", fontStyle: "italic" }}>YOU COPY,</span>
+              <br />
+              INSTANTLY
+              <br />
+              RECALLED
             </h1>
-
-            {/* Subheadline */}
-            <p
-              style={{
-                fontSize: "clamp(15px, 3.5vw, 17px)",
-                color: "rgba(255,255,255,0.85)",
-                maxWidth: 400,
-                lineHeight: 1.5,
-                marginTop: 20,
-                marginBottom: 0,
-              }}
-            >
-              Save your clipboard history. Search, pin, and paste with a single
-              shortcut.
-            </p>
-
-            {/* App Store download button */}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 12,
-                marginTop: 32,
-                flexWrap: "wrap",
-              }}
-            >
-              {/* TODO: Replace href with actual App Store URL once ID is available */}
-              <a
-                href={APP_STORE_URL}
-                className="app-store-badge"
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 10,
-                  background: "#000000",
-                  borderRadius: 12,
-                  padding: "10px 20px",
-                  textDecoration: "none",
-                  transition: "opacity 0.2s",
-                }}
-              >
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
-                </svg>
-                <div style={{ display: "flex", flexDirection: "column" }}>
-                  <span style={{ fontSize: 10, color: "rgba(255,255,255,0.8)", lineHeight: 1 }}>Download on the</span>
-                  <span style={{ fontSize: 18, fontWeight: 600, color: "#ffffff", lineHeight: 1.2 }}>Mac App Store</span>
-                </div>
-              </a>
-            </div>
-
-            {/* Note */}
-            <p
-              style={{
-                fontSize: 13,
-                color: "rgba(255,255,255,0.7)",
-                marginTop: 16,
-              }}
-            >
-              Free on the Mac App Store &middot; macOS 13+
-            </p>
           </div>
 
-          {/* RIGHT: Live Demo */}
+          {/* App screenshot mockup */}
           <div className="hero-demo-enter">
-            {/* Background gradient */}
-            <div
-              style={{
-                position: "relative",
-                borderRadius: 20,
-                padding: 24,
-              }}
-            >
-              {/* Soft gradient behind */}
-              <div
-                style={{
-                  position: "absolute",
-                  inset: 0,
-                  borderRadius: 20,
-                  background:
-                    "linear-gradient(135deg, rgba(0,122,255,0.08) 0%, rgba(52,199,89,0.06) 50%, rgba(0,122,255,0.04) 100%)",
-                  pointerEvents: "none",
-                }}
-              />
+            <HeroAppMockup />
+          </div>
+        </div>
 
-              {/* ClippyBar window */}
-              <div className="glass-card macos-window" style={{ position: "relative" }}>
-                {/* Title bar */}
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 12,
-                    padding: "12px 16px",
-                    borderBottom: "0.5px solid rgba(0,0,0,0.06)",
-                  }}
-                >
-                  <div className="macos-dots">
-                    <div className="macos-dot macos-dot-red" />
-                    <div className="macos-dot macos-dot-yellow" />
-                    <div className="macos-dot macos-dot-green" />
-                  </div>
-                  {/* Search field */}
-                  <div
-                    style={{
-                      flex: 1,
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                      background: "rgba(0,0,0,0.04)",
-                      borderRadius: 8,
-                      padding: "6px 10px",
-                    }}
-                  >
-                    <svg
-                      width="13"
-                      height="13"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="#86868B"
-                      strokeWidth="2"
-                    >
-                      <circle cx="11" cy="11" r="8" />
-                      <path d="m21 21-4.35-4.35" />
-                    </svg>
-                    <span style={{ fontSize: 13, color: "#86868B" }}>
-                      Search clipboard...
-                    </span>
-                  </div>
-                </div>
-
-                {/* Clipboard items */}
-                <div style={{ padding: "4px 8px 8px" }}>
-                  {demoClipboardItems.map((item, i) => (
-                    <div
-                      key={i}
-                      onClick={() => handleItemClick(i)}
-                      className={`demo-item ${clickedIndex === i ? "clicked" : ""}`}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        height: 44,
-                        padding: "0 12px",
-                        gap: 10,
-                        background:
-                          selectedIndex === i
-                            ? "rgba(0,122,255,0.06)"
-                            : "transparent",
-                      }}
-                    >
-                      <span
-                        style={{
-                          flex: 1,
-                          fontSize: 13,
-                          fontFamily: "SF Mono, Menlo, monospace",
-                          color:
-                            selectedIndex === i ? "#007AFF" : "#1D1D1F",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {item.text}
-                      </span>
-                      <span className={`pill-badge ${item.pillClass}`}>
-                        {item.label}
-                      </span>
-                    </div>
-                  ))}
+        {/* Bottom feature pills bar */}
+        <div className="hero-bottom-bar">
+          <div className="mx-auto max-w-[1200px] px-4 sm:px-6 lg:px-8 w-full">
+            <div className="hero-pills-row">
+              <div className="hero-pill">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.7)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                </svg>
+                <div>
+                  <span className="hero-pill-label">History</span>
+                  <span className="hero-pill-value">Unlimited</span>
                 </div>
               </div>
-
-              {/* Terminal paste target */}
-              <div
-                className="glass-card macos-window"
-                style={{ position: "relative", marginTop: 16 }}
+              <div className="hero-pill">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.7)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                  <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                </svg>
+                <div>
+                  <span className="hero-pill-label">Shortcut</span>
+                  <span className="hero-pill-value">&#x2325;V</span>
+                </div>
+              </div>
+              <div className="hero-pill">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.7)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                </svg>
+                <div>
+                  <span className="hero-pill-label">Privacy</span>
+                  <span className="hero-pill-value">100% Local</span>
+                </div>
+              </div>
+              <div className="hero-pill">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.7)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+                </svg>
+                <div>
+                  <span className="hero-pill-label">Price</span>
+                  <span className="hero-pill-value">Free</span>
+                </div>
+              </div>
+              <a
+                href={APP_STORE_URL}
+                className="hero-pill-cta"
               >
-                {/* Terminal title bar */}
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 12,
-                    padding: "10px 16px",
-                    borderBottom: "0.5px solid rgba(0,0,0,0.06)",
-                  }}
-                >
-                  <div className="macos-dots">
-                    <div className="macos-dot macos-dot-red" />
-                    <div className="macos-dot macos-dot-yellow" />
-                    <div className="macos-dot macos-dot-green" />
-                  </div>
-                  <span
-                    style={{
-                      flex: 1,
-                      textAlign: "center",
-                      fontSize: 12,
-                      color: "#86868B",
-                      fontWeight: 500,
-                    }}
-                  >
-                    Terminal — zsh
-                  </span>
-                  <div style={{ width: 48 }} />
-                </div>
-
-                {/* Terminal body */}
-                <div
-                  style={{
-                    padding: "12px 16px",
-                    minHeight: 48,
-                    display: "flex",
-                    alignItems: "flex-start",
-                    fontFamily: "SF Mono, Menlo, monospace",
-                    fontSize: 13,
-                  }}
-                >
-                  <span
-                    style={{
-                      color: "#007AFF",
-                      marginRight: 8,
-                      userSelect: "none",
-                    }}
-                  >
-                    $
-                  </span>
-                  {displayedText ? (
-                    <span style={{ color: "#1D1D1F", wordBreak: "break-all" }}>
-                      {displayedText}
-                      {isTyping && <span className="typing-cursor" />}
-                    </span>
-                  ) : (
-                    <span>
-                      <span className="typing-cursor" />
-                    </span>
-                  )}
-                </div>
-              </div>
+                Download
+              </a>
             </div>
           </div>
         </div>
