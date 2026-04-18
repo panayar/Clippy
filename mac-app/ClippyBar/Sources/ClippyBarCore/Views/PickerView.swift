@@ -4,6 +4,11 @@ struct PickerView: View {
     @EnvironmentObject var store: ClipboardStore
     @EnvironmentObject var monitor: ClipboardMonitor
     @State private var searchText = ""
+    /// Debounced copy of searchText that actually drives filtering. Trails
+    /// searchText by ~150ms so a keystroke doesn't trigger an O(n·content)
+    /// linear scan per character. See Benchmarks/baseline.md.
+    @State private var debouncedQuery: String = ""
+    @State private var searchDebounceTask: Task<Void, Never>?
     @State private var selectedIndex: Int = 0
     @State private var hoveredId: String?
     @State private var activeFilters: Set<ClipboardItem.ContentType> = []
@@ -13,7 +18,7 @@ struct PickerView: View {
     @Namespace private var chipNamespace
 
     private var filteredItems: [ClipboardItem] {
-        store.search(query: searchText, typeFilters: activeFilters)
+        store.search(query: debouncedQuery, typeFilters: activeFilters)
     }
 
     private var pinnedItems: [ClipboardItem] {
@@ -93,8 +98,12 @@ struct PickerView: View {
         .onAppear {
             selectedIndex = pinnedItems.count
             searchText = ""
+            debouncedQuery = ""
         }
-        .onChange(of: searchText) { _ in
+        .onChange(of: searchText) { newValue in
+            scheduleDebouncedSearch(for: newValue)
+        }
+        .onChange(of: debouncedQuery) { _ in
             selectedIndex = pinnedItems.count
         }
         .onChange(of: activeFilters) { _ in
@@ -103,6 +112,8 @@ struct PickerView: View {
         .onReceive(NotificationCenter.default.publisher(for: .clipBarPickerShown)) { _ in
             selectedIndex = pinnedItems.count
             searchText = ""
+            debouncedQuery = ""
+            searchDebounceTask?.cancel()
             activeFilters = []
         }
         .onReceive(NotificationCenter.default.publisher(for: .clipBarMoveUp)) { _ in
@@ -147,10 +158,20 @@ struct PickerView: View {
             TextField("Search\u{2026}", text: $searchText)
                 .textFieldStyle(.plain)
                 .font(.system(size: 14))
-                .onSubmit { selectCurrentItem() }
+                .onSubmit {
+                    // Flush the debounce so Return pastes the top result of
+                    // what the user just typed, not the pre-debounce filter.
+                    flushSearchDebounce()
+                    selectCurrentItem()
+                }
 
             if !searchText.isEmpty {
-                Button(action: { searchText = "" }) {
+                Button(action: {
+                    searchText = ""
+                    // Clear is immediate — no reason to wait 150ms to show
+                    // the full list again.
+                    flushSearchDebounce()
+                }) {
                     Image(systemName: "xmark.circle.fill")
                         .foregroundStyle(.quaternary)
                 }
@@ -520,6 +541,30 @@ struct PickerView: View {
                 .font(.system(size: 9))
                 .foregroundStyle(.tertiary)
         }
+    }
+
+    // MARK: - Search debounce
+
+    private static let searchDebounceInterval: Duration = .milliseconds(150)
+
+    private func scheduleDebouncedSearch(for query: String) {
+        searchDebounceTask?.cancel()
+        // Empty query is always immediate — nothing expensive to save.
+        if query.isEmpty {
+            debouncedQuery = ""
+            return
+        }
+        searchDebounceTask = Task { @MainActor in
+            try? await Task.sleep(for: Self.searchDebounceInterval)
+            guard !Task.isCancelled else { return }
+            debouncedQuery = query
+        }
+    }
+
+    private func flushSearchDebounce() {
+        searchDebounceTask?.cancel()
+        searchDebounceTask = nil
+        debouncedQuery = searchText
     }
 
     // MARK: - Navigation

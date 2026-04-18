@@ -2,22 +2,22 @@ import AppKit
 import Foundation
 
 /// Represents a single clipboard history entry.
-struct ClipboardItem: Identifiable, Codable, Equatable, Hashable {
-    let id: String
-    let content: String
-    let contentType: ContentType
-    let timestamp: Date
-    var isPinned: Bool
-    let sourceApp: String?
+public struct ClipboardItem: Identifiable, Codable, Equatable, Hashable, Sendable {
+    public let id: String
+    public let content: String
+    public let contentType: ContentType
+    public let timestamp: Date
+    public var isPinned: Bool
+    public let sourceApp: String?
 
-    enum ContentType: String, Codable {
+    public enum ContentType: String, Codable, Sendable {
         case text
         case image
         case link
         case file
     }
 
-    init(
+    public init(
         id: String = UUID().uuidString,
         content: String,
         contentType: ContentType = .text,
@@ -148,11 +148,11 @@ struct ClipboardItem: Identifiable, Codable, Equatable, Hashable {
         Self.relativeFormatter.localizedString(for: timestamp, relativeTo: Date())
     }
 
-    static func == (lhs: ClipboardItem, rhs: ClipboardItem) -> Bool {
+    public static func == (lhs: ClipboardItem, rhs: ClipboardItem) -> Bool {
         lhs.id == rhs.id && lhs.isPinned == rhs.isPinned
     }
 
-    func hash(into hasher: inout Hasher) {
+    public func hash(into hasher: inout Hasher) {
         hasher.combine(id)
         hasher.combine(isPinned)
     }

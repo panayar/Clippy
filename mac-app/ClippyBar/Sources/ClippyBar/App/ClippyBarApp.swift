@@ -1,4 +1,5 @@
 import SwiftUI
+import ClippyBarCore
 
 @main
 struct ClippyBarApp: App {

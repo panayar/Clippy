@@ -29,8 +29,8 @@ final class FirstMouseVisualEffectView: NSVisualEffectView {
 
 /// Manages a floating NSPanel that hosts the clipboard picker UI.
 @MainActor
-final class PickerWindowController: NSObject, NSWindowDelegate {
-    static let shared = PickerWindowController()
+public final class PickerWindowController: NSObject, NSWindowDelegate {
+    public static let shared = PickerWindowController()
 
     /// Set by PickerView when the edit overlay is open so the key
     /// monitor can route Return → save and Escape → cancel.
@@ -47,12 +47,12 @@ final class PickerWindowController: NSObject, NSWindowDelegate {
 
     private override init() {}
 
-    func configure(store: ClipboardStore, monitor: ClipboardMonitor) {
+    public func configure(store: ClipboardStore, monitor: ClipboardMonitor) {
         self.store = store
         self.monitor = monitor
     }
 
-    func show() {
+    public func show() {
         previousApp = NSWorkspace.shared.frontmostApplication
 
         if panel == nil {
@@ -72,13 +72,13 @@ final class PickerWindowController: NSObject, NSWindowDelegate {
         NotificationCenter.default.post(name: .clipBarPickerShown, object: nil)
     }
 
-    func hide() {
+    public func hide() {
         removeKeyMonitor()
         panel?.orderOut(nil)
     }
 
     /// Hide the picker and return focus to the previous app.
-    func hideAndRestoreFocus() {
+    public func hideAndRestoreFocus() {
         hide()
         // Re-activate the app that was in front before the picker opened
         if let prev = previousApp {
@@ -90,7 +90,7 @@ final class PickerWindowController: NSObject, NSWindowDelegate {
         }
     }
 
-    func toggle() {
+    public func toggle() {
         if let panel = panel, panel.isVisible {
             hide()
         } else {
@@ -100,12 +100,12 @@ final class PickerWindowController: NSObject, NSWindowDelegate {
 
     // MARK: - NSWindowDelegate
 
-    func windowShouldClose(_ sender: NSWindow) -> Bool {
+    public func windowShouldClose(_ sender: NSWindow) -> Bool {
         hide()
         return false
     }
 
-    func windowDidResignKey(_ notification: Notification) {
+    public func windowDidResignKey(_ notification: Notification) {
         guard UserDefaults.standard.bool(forKey: "dismissOnClickOutside") else { return }
         hide()
     }

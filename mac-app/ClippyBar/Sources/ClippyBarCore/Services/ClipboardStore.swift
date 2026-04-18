@@ -12,8 +12,8 @@ private struct SendableDBPointer: @unchecked Sendable {
 }
 
 @MainActor
-final class ClipboardStore: ObservableObject {
-    @Published var items: [ClipboardItem] = []
+public final class ClipboardStore: ObservableObject {
+    @Published public var items: [ClipboardItem] = []
 
     private var db: OpaquePointer?
     private let dbPath: String
@@ -26,31 +26,29 @@ final class ClipboardStore: ObservableObject {
     @AppStorage("retentionDays") var retentionDays: Int = 7  // 0 = forever
     @AppStorage("memoryOnlyMode") var memoryOnlyMode: Bool = false
 
-    init() {
-        guard let appSupportBase = FileManager.default.urls(
+    public convenience init() {
+        let baseDir: URL
+        if let appSupportBase = FileManager.default.urls(
             for: .applicationSupportDirectory, in: .userDomainMask
-        ).first else {
-            // Fallback to temp directory — app runs in memory-only mode
-            let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("ClippyBar", isDirectory: true)
-            try? FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
-            imagesDir = tmp.appendingPathComponent("images", isDirectory: true)
-            try? FileManager.default.createDirectory(at: imagesDir, withIntermediateDirectories: true)
-            dbPath = tmp.appendingPathComponent("clipboard.db").path
+        ).first {
+            baseDir = appSupportBase.appendingPathComponent("ClippyBar", isDirectory: true)
+        } else {
+            baseDir = FileManager.default.temporaryDirectory.appendingPathComponent("ClippyBar", isDirectory: true)
             print("[ClippyBar] Warning: Application Support unavailable, using temp directory")
-            openDatabase()
-            createTableIfNeeded()
-            loadItems()
-            pruneExpiredItems()
-            return
         }
-        let appSupport = appSupportBase.appendingPathComponent("ClippyBar", isDirectory: true)
+        self.init(storageDirectory: baseDir)
+    }
 
-        try? FileManager.default.createDirectory(at: appSupport, withIntermediateDirectories: true)
+    /// Designated initializer that accepts an explicit storage directory.
+    /// Used by the app (via the no-arg convenience init) and by benchmarks /
+    /// tests that need an isolated temp directory.
+    public init(storageDirectory: URL) {
+        try? FileManager.default.createDirectory(at: storageDirectory, withIntermediateDirectories: true)
 
-        imagesDir = appSupport.appendingPathComponent("images", isDirectory: true)
+        imagesDir = storageDirectory.appendingPathComponent("images", isDirectory: true)
         try? FileManager.default.createDirectory(at: imagesDir, withIntermediateDirectories: true)
 
-        dbPath = appSupport.appendingPathComponent("clipboard.db").path
+        dbPath = storageDirectory.appendingPathComponent("clipboard.db").path
         openDatabase()
         createTableIfNeeded()
         loadItems()
@@ -72,7 +70,17 @@ final class ClipboardStore: ObservableObject {
                 print("[ClippyBar] DB open error: \(String(cString: sqlite3_errmsg(db)))")
             }
             db = nil
+            return
         }
+        guard let db else { return }
+
+        // WAL: readers don't block writers and vice versa. Also reduces
+        // fsync overhead per commit vs the default rollback journal.
+        sqlite3_exec(db, "PRAGMA journal_mode = WAL;", nil, nil, nil)
+        // NORMAL (vs the default FULL): fsync on commit but not on every
+        // WAL-frame write. A lost last-second clipboard entry on OS crash
+        // is acceptable for this app's durability model.
+        sqlite3_exec(db, "PRAGMA synchronous = NORMAL;", nil, nil, nil)
     }
 
     private func createTableIfNeeded() {
@@ -132,7 +140,7 @@ final class ClipboardStore: ObservableObject {
         items = loaded
     }
 
-    func addItem(_ item: ClipboardItem) {
+    public func addItem(_ item: ClipboardItem) {
         // Deduplicate: remove existing item with same content
         var imageFileToDelete: String?
         var dbIdToDelete: String?
@@ -224,7 +232,7 @@ final class ClipboardStore: ObservableObject {
 
     /// Remove non-pinned items older than the retention period.
     /// Called once on launch to clean up stale history.
-    func pruneExpiredItems() {
+    public func pruneExpiredItems() {
         guard retentionDays > 0 else { return }
         let cutoff = Date().addingTimeInterval(-Double(retentionDays) * 86400)
 
@@ -243,9 +251,10 @@ final class ClipboardStore: ObservableObject {
         let memOnly = self.memoryOnlyMode
         let imgDir = self.imagesDir
         dbQueue.async {
-            for id in expiredIds {
-                Self.deleteFromDB(db: dbPtr.pointer, memoryOnly: memOnly, id: id)
-            }
+            // Batch the deletes under one transaction so prune doesn't fsync
+            // once per expired row. Negligible at the app's 500-item cap but
+            // the wrapper is tiny and strictly helpful.
+            Self.batchDeleteFromDB(db: dbPtr.pointer, memoryOnly: memOnly, ids: expiredIds)
             for imgFile in expiredImages {
                 Self.deleteImageFile(imagesDir: imgDir, fileName: imgFile)
             }
@@ -299,7 +308,7 @@ final class ClipboardStore: ObservableObject {
         }
     }
 
-    func clearAll() {
+    public func clearAll() {
         let imageFiles = items.compactMap { $0.contentType == .image ? $0.content : nil }
         items.removeAll()
         let dbPtr = SendableDBPointer(pointer: self.db)
@@ -348,7 +357,7 @@ final class ClipboardStore: ObservableObject {
         }
     }
 
-    func search(query: String, typeFilters: Set<ClipboardItem.ContentType> = []) -> [ClipboardItem] {
+    public func search(query: String, typeFilters: Set<ClipboardItem.ContentType> = []) -> [ClipboardItem] {
         var result = items
 
         if !typeFilters.isEmpty {
@@ -369,6 +378,20 @@ final class ClipboardStore: ObservableObject {
         }
 
         return result
+    }
+
+    /// Block until all queued background writes have completed.
+    /// Used by benchmarks and tests to ensure deterministic state between iterations.
+    public func waitForPendingWrites() {
+        dbQueue.sync {}
+    }
+
+    /// Overrides the store's limits without going through UserDefaults.
+    /// Used by benchmarks and tests to pin the configuration deterministically.
+    public func configureForBenchmarking(itemLimit: Int, retentionDays: Int, memoryOnly: Bool = false) {
+        self.itemLimit = itemLimit
+        self.retentionDays = retentionDays
+        self.memoryOnlyMode = memoryOnly
     }
 
     // MARK: - Image File Management (static, called from background queue)
@@ -410,6 +433,32 @@ final class ClipboardStore: ObservableObject {
         defer { sqlite3_finalize(stmt) }
         sqlite3_bind_text(stmt, 1, id, -1, SQLITE_TRANSIENT)
         sqlite3_step(stmt)
+    }
+
+    /// Delete many rows in a single transaction, reusing one prepared statement.
+    /// Used by `pruneExpiredItems`. At the app's 500-item cap the win is tiny,
+    /// but the wrapper is strictly helpful: no fsync storm if retention is
+    /// dropped from 30 to 1 day and a big backlog expires at once.
+    private nonisolated static func batchDeleteFromDB(db: OpaquePointer?, memoryOnly: Bool, ids: [String]) {
+        guard let db = db, !memoryOnly, !ids.isEmpty else { return }
+        guard sqlite3_exec(db, "BEGIN TRANSACTION;", nil, nil, nil) == SQLITE_OK else {
+            for id in ids { deleteFromDB(db: db, memoryOnly: memoryOnly, id: id) }
+            return
+        }
+        let sql = "DELETE FROM clipboard_items WHERE id = ?;"
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+            sqlite3_exec(db, "ROLLBACK;", nil, nil, nil)
+            return
+        }
+        defer { sqlite3_finalize(stmt) }
+        for id in ids {
+            sqlite3_bind_text(stmt, 1, id, -1, SQLITE_TRANSIENT)
+            sqlite3_step(stmt)
+            sqlite3_reset(stmt)
+            sqlite3_clear_bindings(stmt)
+        }
+        sqlite3_exec(db, "COMMIT;", nil, nil, nil)
     }
 
     private nonisolated static func updatePinInDB(db: OpaquePointer?, memoryOnly: Bool, id: String, isPinned: Bool) {

@@ -1,14 +1,6 @@
 import AppKit
 import SwiftUI
-
-/// Shared app state accessible across the app.
-@MainActor
-final class AppState {
-    static let shared = AppState()
-    let store = ClipboardStore()
-    let monitor = ClipboardMonitor()
-    private init() {}
-}
+import ClippyBarCore
 
 /// Application delegate handling launch-time setup.
 final class AppDelegate: NSObject, NSApplicationDelegate {

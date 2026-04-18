@@ -49,6 +49,10 @@ struct SettingsView: View {
                             RoundedRectangle(cornerRadius: 5)
                                 .fill(selectedTab == tab ? Color.accentColor.opacity(0.85) : Color.clear)
                         )
+                        // The HStack holds a trailing Spacer for layout. Without
+                        // this, the empty region to the right of the label isn't
+                        // hit-testable and users have to click on the text/icon.
+                        .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                 }

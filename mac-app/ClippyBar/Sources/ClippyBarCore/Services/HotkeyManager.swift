@@ -4,11 +4,11 @@ import Foundation
 
 /// Manages a global keyboard shortcut using the Carbon Events API.
 /// Default hotkey: Option + V.
-final class HotkeyManager {
-    static let shared = HotkeyManager()
+public final class HotkeyManager {
+    public static let shared = HotkeyManager()
 
     /// Called when the hotkey is pressed.
-    var onHotkey: (() -> Void)?
+    public var onHotkey: (() -> Void)?
 
     private var hotkeyRef: EventHotKeyRef?
     private var eventHandlerRef: EventHandlerRef?
@@ -28,7 +28,7 @@ final class HotkeyManager {
     private init() {}
 
     /// Register the global hotkey with the system.
-    func register() {
+    public func register() {
         unregister()
 
         // Install a Carbon event handler for hotkey events
@@ -70,7 +70,7 @@ final class HotkeyManager {
     }
 
     /// Remove the currently registered hotkey.
-    func unregister() {
+    public func unregister() {
         if let ref = hotkeyRef {
             UnregisterEventHotKey(ref)
             hotkeyRef = nil

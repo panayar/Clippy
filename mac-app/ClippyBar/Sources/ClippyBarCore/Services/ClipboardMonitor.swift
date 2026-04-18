@@ -3,8 +3,8 @@ import Foundation
 import SwiftUI
 
 @MainActor
-final class ClipboardMonitor: ObservableObject {
-    @Published var isPaused: Bool {
+public final class ClipboardMonitor: ObservableObject {
+    @Published public var isPaused: Bool {
         didSet {
             UserDefaults.standard.set(isPaused, forKey: "historyPaused")
         }
@@ -49,12 +49,12 @@ final class ClipboardMonitor: ObservableObject {
     /// Debounce support — tracks whether a processing block is already scheduled.
     private var pendingWorkItem: DispatchWorkItem?
 
-    init() {
+    public init() {
         lastChangeCount = NSPasteboard.general.changeCount
         isPaused = UserDefaults.standard.bool(forKey: "historyPaused")
     }
 
-    func start(store: ClipboardStore) {
+    public func start(store: ClipboardStore) {
         self.store = store
         timer?.invalidate()
 

@@ -462,14 +462,14 @@ private struct OnboardingStep {
 // MARK: - Window Controller
 
 @MainActor
-final class OnboardingWindowController {
-    static let shared = OnboardingWindowController()
+public final class OnboardingWindowController {
+    public static let shared = OnboardingWindowController()
     private var window: NSWindow?
 
     private init() {}
 
     /// Flow 1: Full onboarding for new users
-    func showFullOnboarding(onComplete: @escaping () -> Void) {
+    public func showFullOnboarding(onComplete: @escaping () -> Void) {
         let view = OnboardingView {
             self.dismissIfShowing()
             onComplete()
@@ -478,13 +478,13 @@ final class OnboardingWindowController {
     }
 
     /// Flow 2: Accessibility-only prompt for returning users
-    func showAccessibilityPrompt() {
+    public func showAccessibilityPrompt() {
         let view = AccessibilityPromptView()
         showWindow(content: view, width: 400, height: 380)
     }
 
     /// Celebration screen after re-enabling access
-    func showCelebration(onDismiss: @escaping () -> Void) {
+    public func showCelebration(onDismiss: @escaping () -> Void) {
         let view = CelebrationView {
             self.dismissIfShowing()
             onDismiss()
@@ -492,7 +492,7 @@ final class OnboardingWindowController {
         showWindow(content: view, width: 360, height: 300)
     }
 
-    func dismissIfShowing() {
+    public func dismissIfShowing() {
         window?.orderOut(nil)
         window = nil
     }
