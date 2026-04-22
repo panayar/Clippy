@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useImperativeHandle, forwardRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 /* ------------------------------------------------------------------ */
@@ -192,11 +192,10 @@ const faqs = [
   },
 ];
 
-const privacyPoints = [
-  "All data stored locally on your Mac",
-  "Zero network connections — ever",
-  "Optional memory-only mode for maximum privacy",
-  "Exclude sensitive apps from clipboard monitoring",
+const heroSlides = [
+  "A privacy-first clipboard manager for macOS. Save your full history, search instantly, and paste with a single shortcut.",
+  "Never lose a snippet again. Every copy stays on your Mac. Recall anything with ⌥V, no accounts, no cloud, no tracking.",
+  "Pin what matters, filter what doesn’t. Flip between text, links, files, and images in milliseconds without leaving your keyboard.",
 ];
 
 /* ------------------------------------------------------------------ */
@@ -226,7 +225,6 @@ function Navigation() {
 
   const navLinks = [
     { href: "#features", label: "Features" },
-    { href: "#privacy", label: "Privacy" },
     { href: "#faq", label: "FAQ" },
   ];
 
@@ -246,8 +244,8 @@ function Navigation() {
           </div>
 
           {/* Center logo */}
-          <a href="#" className="flex items-center gap-2">
-            <ClippyBarLogo size={28} fill="#1A1A1A" />
+          <a href="#" className="flex items-center gap-0.5">
+            <ClippyBarLogo size={36} fill="#1A1A1A" />
             <span className="text-base font-semibold tracking-tight text-[#1A1A1A]">
               ClippyBar
             </span>
@@ -255,7 +253,13 @@ function Navigation() {
 
           {/* Right download */}
           <div className="hidden md:block">
-            <a href={APP_STORE_URL} className="btn-nav-download">
+            <a
+              href={APP_STORE_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-nav-download gap-2"
+            >
+              <AppleIcon />
               Download
             </a>
           </div>
@@ -272,7 +276,7 @@ function Navigation() {
       </div>
 
       {mobileOpen && (
-        <div className="md:hidden fixed inset-0 top-16 z-40 bg-[#F5F0EB] mobile-menu-enter">
+        <div className="md:hidden fixed inset-0 top-16 z-40 bg-[#FAF7F2] mobile-menu-enter">
           <div className="px-6 py-8 flex flex-col gap-2">
             {navLinks.map((link) => (
               <a
@@ -287,6 +291,8 @@ function Navigation() {
             <div className="pt-6">
               <a
                 href={APP_STORE_URL}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="btn-primary w-full text-center"
                 onClick={handleLinkClick}
               >
@@ -304,14 +310,19 @@ function Navigation() {
 /*  Hero Section                                                       */
 /* ------------------------------------------------------------------ */
 
-function ClippyPickerMock({ onSelect }: { onSelect: () => void }) {
+function ClippyPickerMock({ onClick, onPaste }: { onClick: () => void; onPaste: () => void }) {
   const [selectedItem, setSelectedItem] = useState(-1);
 
   useEffect(() => {
-    const t1 = setTimeout(() => setSelectedItem(0), 600);
-    const t2 = setTimeout(() => onSelect(), 1200);
+    // Fire the click pulse and the highlight at the same instant so the
+    // visual cause-and-effect feels natural.
+    const t1 = setTimeout(() => {
+      setSelectedItem(0);
+      onClick();
+    }, 700);
+    const t2 = setTimeout(() => onPaste(), 1400);
     return () => { clearTimeout(t1); clearTimeout(t2); };
-  }, [onSelect]);
+  }, [onClick, onPaste]);
 
   return (
     <div className="picker-mock">
@@ -432,47 +443,218 @@ function ClippyPickerMock({ onSelect }: { onSelect: () => void }) {
   );
 }
 
+/* ------------------------------------------------------------------ */
+/*  Hero ripples — ambient "clipboard content" snippets                */
+/* ------------------------------------------------------------------ */
+
+type RippleSnippet =
+  | { kind: "text" | "code" | "url"; content: string; meta: string; pinned?: boolean }
+  | { kind: "image"; src: string; meta: string; pinned?: boolean };
+
+const RIPPLE_SNIPPETS: RippleSnippet[] = [
+  // Casual text messages
+  { kind: "text", content: "running late lol 🏃‍♀️", meta: "1m ago · Messages" },
+  { kind: "text", content: "omg yes 😹", meta: "3m ago · Messages" },
+  { kind: "text", content: "can't even rn 💀", meta: "5m ago · Messages" },
+  { kind: "text", content: "coffee first ☕", meta: "8m ago · Messages" },
+  { kind: "text", content: "this slaps 🔥", meta: "12m ago · Messages" },
+  { kind: "text", content: "pizza night 🍕🍕", meta: "16m ago · Messages" },
+  { kind: "text", content: "miss u 🐱", meta: "20m ago · Messages" },
+  { kind: "text", content: "it's giving main character", meta: "22m ago · Messages" },
+  { kind: "text", content: "sending love 💕", meta: "28m ago · Messages" },
+  { kind: "text", content: "deadass 🫡", meta: "35m ago · Messages" },
+  { kind: "text", content: "gn 🌙", meta: "48m ago · Messages" },
+  // Notes / todos (some pinned)
+  { kind: "text", content: "TODO: buy milk", meta: "9m ago · Notes", pinned: true },
+  { kind: "text", content: "Meeting @ 3pm", meta: "14m ago · Notes" },
+  { kind: "text", content: "Mom's birthday!!", meta: "1h ago · Notes", pinned: true },
+  { kind: "text", content: "don't forget keys", meta: "2h ago · Notes" },
+  { kind: "text", content: "gift ideas: socks?", meta: "3h ago · Notes" },
+  // Images — cats, animals, random screenshots
+  { kind: "image", src: "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=120&h=120&fit=crop",  meta: "4m ago · Lightshot Screenshot" },
+  { kind: "image", src: "https://images.unsplash.com/photo-1533738363-b7f9aef128ce?w=120&h=120&fit=crop",    meta: "11m ago · Screenshot" },
+  { kind: "image", src: "https://images.unsplash.com/photo-1561948955-570b270e7c36?w=120&h=120&fit=crop",    meta: "26m ago · Screenshot" },
+  { kind: "image", src: "https://images.unsplash.com/photo-1548247416-ec66f4900b2e?w=120&h=120&fit=crop",    meta: "41m ago · Finder" },
+  { kind: "image", src: "https://images.unsplash.com/photo-1517849845537-4d257902454a?w=120&h=120&fit=crop", meta: "1h ago · Screenshot" },
+  { kind: "image", src: "https://images.unsplash.com/photo-1552053831-71594a27632d?w=120&h=120&fit=crop",    meta: "2h ago · Lightshot Screenshot", pinned: true },
+  // URLs
+  { kind: "url",  content: "https://clippybar.app",         meta: "2m ago · Arc", pinned: true },
+  { kind: "url",  content: "https://youtube.com/watch?v=…", meta: "25m ago · Safari" },
+  { kind: "url",  content: "https://github.com/panayar",    meta: "1h ago · Arc" },
+  // Code
+  { kind: "code", content: "npm install clippybar", meta: "7m ago · VS Code" },
+  { kind: "code", content: "git push --force",      meta: "30m ago · iTerm2", pinned: true },
+  { kind: "code", content: "console.log(42)",       meta: "1h ago · VS Code" },
+];
+
+type HeroRipplesHandle = { spawnAt: (x: number, y: number) => void };
+
+const HeroRipples = forwardRef<HeroRipplesHandle>(function HeroRipples(_props, ref) {
+  type Ripple = { id: number; x: number; y: number; snippet: RippleSnippet; tilt: number };
+  const [ripples, setRipples] = useState<Ripple[]>([]);
+  const idRef = useRef(0);
+
+  const spawnAt = useCallback((x: number, y: number) => {
+    const snippet = RIPPLE_SNIPPETS[Math.floor(Math.random() * RIPPLE_SNIPPETS.length)];
+    const tilt = Math.random() * 14 - 7;
+    const id = idRef.current++;
+    const ripple: Ripple = { id, x, y, snippet, tilt };
+    setRipples((prev) => [...prev, ripple]);
+    window.setTimeout(() => {
+      setRipples((prev) => prev.filter((r) => r.id !== id));
+    }, 3400);
+  }, []);
+
+  useImperativeHandle(ref, () => ({ spawnAt }), [spawnAt]);
+
+  return (
+    <div className="hero-ripples">
+      {ripples.map((r) => (
+        <div
+          key={r.id}
+          className="hero-ripple"
+          style={{ left: r.x, top: r.y, ["--tilt" as string]: `${r.tilt}deg` }}
+        >
+          {/* Concentric rings radiating out from the click */}
+          <span className="hero-ripple-ring hero-ripple-ring-1" />
+          <span className="hero-ripple-ring hero-ripple-ring-2" />
+          <span className="hero-ripple-ring hero-ripple-ring-3" />
+          {/* Clippy-style item that falls to the bottom of the banner */}
+          <div className={`hero-ripple-item hero-ripple-${r.snippet.kind}`}>
+            {r.snippet.kind === "image" ? (
+              <img
+                className="hero-ripple-thumb"
+                src={r.snippet.src}
+                alt=""
+                loading="lazy"
+                draggable={false}
+              />
+            ) : null}
+            <div className="hero-ripple-body">
+              <span className="hero-ripple-title">
+                {r.snippet.kind === "image" ? "Image" : r.snippet.content}
+              </span>
+              <span className="hero-ripple-meta">{r.snippet.meta}</span>
+            </div>
+            {r.snippet.pinned && (
+              <svg
+                className="hero-ripple-pin"
+                width="11"
+                height="11"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                aria-hidden="true"
+              >
+                <path d="M16 3v5.586l3.293 3.293a1 1 0 0 1-.293 1.621L13 15.414V21a1 1 0 0 1-2 0v-5.586l-6-1.914a1 1 0 0 1-.293-1.621L8 8.586V3a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1z" />
+              </svg>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+});
+
 function HeroSection() {
   const [phase, setPhase] = useState(0);
+  const [skipIntro, setSkipIntro] = useState(false);
+  const sectionRef = useRef<HTMLElement>(null);
+  const ripplesRef = useRef<HeroRipplesHandle>(null);
+
+  const handleHeroClick = useCallback((e: React.MouseEvent<HTMLElement>) => {
+    if (!sectionRef.current || !ripplesRef.current) return;
+    const rect = sectionRef.current.getBoundingClientRect();
+    ripplesRef.current.spawnAt(e.clientX - rect.left, e.clientY - rect.top);
+  }, []);
   // 0: empty
   // 1: cursor appears center, does a playful wiggle
   // 2: cursor moves to the side, ⌥V shortcut appears center
   // 3: picker appears center, cursor moves onto the first item
-  // 4: cursor clicks, picker closes, text pastes as title
-  // 5: cursor exits
-  // 6: rest of content reveals
+  // 4: click — cursor punch + ripple fire AND item highlights (picker still visible)
+  // 5: picker closes, text pastes as headline
+  // 6: cursor exits
+  // 7: rest of content reveals
 
-  const handlePickerSelect = useCallback(() => {
-    setPhase(4);
-  }, []);
+  const handlePickerClick = useCallback(() => setPhase(4), []);
+  const handlePickerPaste = useCallback(() => setPhase(5), []);
+
+  const [activeSlide, setActiveSlide] = useState(0);
+
+  useEffect(() => {
+    // Auto-advance the tagline carousel only after the intro animation
+    // finishes, and reset the timer whenever the slide changes (from either
+    // auto-advance or a manual dot click).
+    if (phase < 7) return;
+    const t = setTimeout(() => {
+      setActiveSlide((i) => (i + 1) % heroSlides.length);
+    }, 11000);
+    return () => clearTimeout(t);
+  }, [activeSlide, phase]);
 
   useEffect(() => {
     const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (prefersReduced) {
-      setPhase(6);
+      setSkipIntro(true);
+      setPhase(7);
       return;
     }
     const timers = [
       setTimeout(() => setPhase(1), 300),    // cursor appears + wiggle
       setTimeout(() => setPhase(2), 1800),   // cursor aside, shortcut center
       setTimeout(() => setPhase(3), 2800),   // picker appears, cursor moves to item
-      // phase 4 triggered by picker onSelect (~1.2s after phase 3)
-      setTimeout(() => setPhase(5), 5200),   // cursor exits
-      setTimeout(() => setPhase(6), 5900),   // content reveals
+      // phase 4 triggered by picker onClick (~700ms after phase 3)
+      // phase 5 triggered by picker onPaste (~1400ms after phase 3)
+      setTimeout(() => setPhase(6), 5400),   // cursor exits
+      setTimeout(() => setPhase(7), 6100),   // content reveals
     ];
     return () => timers.forEach(clearTimeout);
+  }, []);
+
+  // Handle bfcache restore (same-tab back button). useEffect won't re-run
+  // and timers were cleared when the tab was frozen — force the final state.
+  useEffect(() => {
+    const onPageShow = (e: PageTransitionEvent) => {
+      if (!e.persisted) return;
+      setSkipIntro(true);
+      setPhase(7);
+      document
+        .querySelectorAll(".section-reveal")
+        .forEach((el) => el.classList.add("visible"));
+    };
+    window.addEventListener("pageshow", onPageShow);
+    return () => window.removeEventListener("pageshow", onPageShow);
   }, []);
 
   const word1 = "Clippy".split("");
   const word2 = "Bar".split("");
 
   return (
-    <section className="hero-banner" style={{ background: "#F5F0EB" }}>
+    <section
+      ref={sectionRef}
+      className="hero-banner"
+      style={{ background: "#FAF7F2" }}
+      onClick={handleHeroClick}
+    >
+      {/* Ripple snippets — only on click, anywhere inside the banner */}
+      <HeroRipples ref={ripplesRef} />
+
+      {/* Hint chip — signals the banner is interactive */}
+      <motion.div
+        aria-hidden="true"
+        className="hero-click-hint"
+        initial={skipIntro ? false : { opacity: 0, y: 8 }}
+        animate={phase >= 7 ? { opacity: 1, y: 0 } : {}}
+        transition={{ duration: 0.6, delay: 0.9, ease: [0.22, 0.8, 0.28, 1] }}
+      >
+        <span className="hero-click-hint-emoji">👆</span>
+        <span>click anywhere</span>
+      </motion.div>
+
       <div className="hero-banner-inner">
 
         {/* Animated cursor */}
         <AnimatePresence>
-          {phase >= 1 && phase <= 4 && (
+          {phase >= 1 && phase <= 5 && (
             <motion.img
               src="/cursor.svg"
               alt=""
@@ -486,20 +668,49 @@ function HeroSection() {
                       top: "50%",
                       opacity: 1,
                       y: [0, 30, 0],
+                      scale: 1,
                     }
                   : phase === 2
-                  ? { left: "70%", top: "38%", opacity: 1, y: 0 }
+                  ? { left: "70%", top: "38%", opacity: 1, y: 0, scale: 1 }
                   : phase === 3
-                  ? { left: "calc(50% - 60px)", top: "calc(50% - 110px)", opacity: 1, y: 0 }
-                  : { left: "calc(50% - 60px)", top: "calc(50% - 110px)", opacity: 1, y: 0, scale: 0.88 }
+                  ? { left: "calc(50% - 60px)", top: "calc(50% - 110px)", opacity: 1, y: 0, scale: 1 }
+                  : phase === 4
+                  ? { left: "calc(50% - 60px)", top: "calc(50% - 110px)", opacity: 1, y: 0, scale: [1, 0.78, 1] }
+                  : { left: "calc(50% - 60px)", top: "calc(50% - 110px)", opacity: 1, y: 0, scale: 1 }
               }
               exit={{ left: "-10%", top: "30%", opacity: 0 }}
               transition={
                 phase === 1
                   ? { duration: 0.8, ease: [0.2, 0.8, 0.2, 1] }
+                  : phase === 4
+                  ? {
+                      duration: 0.6,
+                      ease: [0.32, 0.72, 0, 1],
+                      scale: { duration: 0.32, times: [0, 0.45, 1], ease: [0.4, 0, 0.2, 1] },
+                    }
                   : { duration: 0.6, ease: [0.32, 0.72, 0, 1] }
               }
             />
+          )}
+        </AnimatePresence>
+
+        {/* Click ripple — Screen Studio style feedback */}
+        <AnimatePresence>
+          {phase === 4 && (
+            <>
+              <motion.span
+                className="hero-click-ripple"
+                initial={{ scale: 0.2, opacity: 0.55 }}
+                animate={{ scale: 2.6, opacity: 0 }}
+                transition={{ duration: 0.6, ease: [0.22, 0.8, 0.28, 1] }}
+              />
+              <motion.span
+                className="hero-click-ripple hero-click-ripple-inner"
+                initial={{ scale: 0.1, opacity: 0.75 }}
+                animate={{ scale: 1.6, opacity: 0 }}
+                transition={{ duration: 0.45, ease: [0.22, 0.8, 0.28, 1] }}
+              />
+            </>
           )}
         </AnimatePresence>
 
@@ -529,7 +740,7 @@ function HeroSection() {
 
         {/* ClippyBar picker — centered */}
         <AnimatePresence>
-          {phase === 3 && (
+          {(phase === 3 || phase === 4) && (
             <motion.div
               className="hero-picker-wrapper"
               initial={{ opacity: 0, scale: 0.92, y: 16 }}
@@ -537,7 +748,7 @@ function HeroSection() {
               exit={{ opacity: 0, scale: 0.96, y: -8 }}
               transition={{ duration: 0.3, ease: [0.32, 0.72, 0, 1] }}
             >
-              <ClippyPickerMock onSelect={handlePickerSelect} />
+              <ClippyPickerMock onClick={handlePickerClick} onPaste={handlePickerPaste} />
             </motion.div>
           )}
         </AnimatePresence>
@@ -545,11 +756,16 @@ function HeroSection() {
       </div>
 
       {/* Text content */}
-      <div className="mx-auto max-w-[1400px] px-6 sm:px-8 lg:px-12">
+      <div className="relative mx-auto max-w-[1400px] px-6 sm:px-8 lg:px-12" style={{ zIndex: 1 }}>
         {/* The headline — pastes in after picker selection */}
         <div className="relative">
           <h1 className="hero-display">
-            {phase >= 4 ? (
+            {skipIntro ? (
+              <>
+                <span className="block">Clippy</span>
+                <span className="block">Bar</span>
+              </>
+            ) : phase >= 5 ? (
               <>
                 <span className="block">
                   {word1.map((char, i) => (
@@ -594,7 +810,7 @@ function HeroSection() {
             )}
           </h1>
 
-          {phase === 4 && (
+          {phase === 5 && (
             <motion.span
               className="hero-text-cursor"
               initial={{ opacity: 0 }}
@@ -606,15 +822,25 @@ function HeroSection() {
 
         {/* Rest of hero content */}
         <motion.div
-          initial={{ opacity: 0, y: 24 }}
-          animate={phase >= 6 ? { opacity: 1, y: 0 } : {}}
+          initial={skipIntro ? false : { opacity: 0, y: 24 }}
+          animate={phase >= 7 ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.8, ease: [0.32, 0.72, 0, 1] }}
           className="mt-10 md:mt-14 flex flex-col md:flex-row md:items-end md:justify-between gap-8"
         >
-          <p className="text-[#6B7280] text-base md:text-lg leading-relaxed max-w-md">
-            A privacy-first clipboard manager for macOS. Save your full history,
-            search instantly, and paste with a single shortcut.
-          </p>
+          <div className="hero-tagline-slot max-w-md">
+            <AnimatePresence mode="wait">
+              <motion.p
+                key={activeSlide}
+                className="text-[#6B7280] text-base md:text-lg leading-relaxed"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.4, ease: [0.32, 0.72, 0, 1] }}
+              >
+                {heroSlides[activeSlide]}
+              </motion.p>
+            </AnimatePresence>
+          </div>
           <a href="#features" className="btn-pill-outline shrink-0">
             Explore ClippyBar
             <ArrowRight />
@@ -623,20 +849,30 @@ function HeroSection() {
 
         {/* Dot indicators */}
         <motion.div
-          initial={{ opacity: 0 }}
-          animate={phase >= 6 ? { opacity: 1 } : {}}
+          initial={skipIntro ? false : { opacity: 0 }}
+          animate={phase >= 7 ? { opacity: 1 } : {}}
           transition={{ duration: 0.6, delay: 0.2 }}
           className="flex items-center gap-2 mt-10"
+          role="tablist"
+          aria-label="Tagline"
         >
-          <span className="w-2 h-2 rounded-full bg-[#1A1A1A]" />
-          <span className="w-2 h-2 rounded-full bg-[#D1D5DB]" />
-          <span className="w-2 h-2 rounded-full bg-[#D1D5DB]" />
+          {heroSlides.map((_, i) => (
+            <button
+              key={i}
+              type="button"
+              role="tab"
+              aria-selected={i === activeSlide}
+              aria-label={`Show tagline ${i + 1}`}
+              onClick={() => setActiveSlide(i)}
+              className={`hero-dot ${i === activeSlide ? "hero-dot-active" : ""}`}
+            />
+          ))}
         </motion.div>
 
         {/* Main demo video */}
         <motion.div
-          initial={{ opacity: 0, y: 32 }}
-          animate={phase >= 6 ? { opacity: 1, y: 0 } : {}}
+          initial={skipIntro ? false : { opacity: 0, y: 32 }}
+          animate={phase >= 7 ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.8, delay: 0.3, ease: [0.32, 0.72, 0, 1] }}
           className="mt-14 md:mt-20"
         >
@@ -666,8 +902,8 @@ function AboutSection() {
             About Us
           </h2>
           <p className="about-editorial-text">
-            We believe that a great clipboard manager is <strong>more than just storage
-            — it&#39;s about creating workflows where productivity happens.</strong>{" "}
+            We believe that a great clipboard manager is <strong>more than just storage.
+            It&#39;s about creating workflows where productivity happens.</strong>{" "}
             ClippyBar is thoughtfully crafted to combine instant recall, privacy-first
             design, everyday functionality, and lasting simplicity.
           </p>
@@ -678,100 +914,126 @@ function AboutSection() {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Feature Cards Row                                                  */
+/*  Features Showcase — alternating spotlight rows                     */
 /* ------------------------------------------------------------------ */
 
-function FeatureCardsRow() {
-  const ref = useReveal();
-  const [activeCard, setActiveCard] = useState(0);
+const features = [
+  {
+    num: "01",
+    title: "Smart Filters",
+    description:
+      "Narrow your clipboard by type: text, links, files, or images. Find the right snippet with a single click, without scrolling through noise.",
+    media: "/demos/filters.mp4",
+  },
+  {
+    num: "02",
+    title: "Instant Search",
+    description:
+      "Type and find any snippet you’ve ever copied, in milliseconds. Fuzzy matching and keyboard-first controls mean you never lose track of what you need.",
+    media: "/demos/search.mp4",
+  },
+  {
+    num: "03",
+    title: "Clean Up Fast",
+    description:
+      "Delete a single item or scrub a sensitive paste in a tap with ⌘⌫. Keep your history tidy without ever leaving the picker.",
+    media: "/demos/delete.mp4",
+  },
+  {
+    num: "04",
+    title: "Edit Before Paste",
+    description:
+      "Tweak a snippet in place before it hits the clipboard: trim whitespace, fix a typo, adjust a link. Small fixes shouldn’t break your flow.",
+    media: "/demos/edit.mp4",
+  },
+  {
+    num: "05",
+    title: "Pin Favorites",
+    description:
+      "Keep go-to snippets pinned to the top of your history. Always one shortcut away, never buried under fresh copies.",
+    media: "/demos/pin.mp4",
+  },
+];
 
-  const cards = [
-    {
-      num: "01",
-      icon: <SearchIcon />,
-      title: "Instant\nSearch",
-      description:
-        "Filter your entire clipboard history in milliseconds to find exactly what you need.",
-      media: "/demos/clippy-demo.mp4",
-      mediaType: "video" as const,
-    },
-    {
-      num: "02",
-      icon: <ZapIcon />,
-      title: "Smart\nFilters",
-      description:
-        "Narrow down by type — text, links, files, or images. Find what matters fast.",
-      media: "/demos/filters-gif.gif",
-      mediaType: "image" as const,
-    },
-    {
-      num: "03",
-      icon: <ShieldIcon />,
-      title: "Pin\nFavorites",
-      description:
-        "Keep important snippets pinned to the top. Always there when you need them.",
-      media: "/demos/pin-item.gif",
-      mediaType: "image" as const,
-    },
-  ];
+function FeatureRow({
+  feature,
+  index,
+}: {
+  feature: (typeof features)[number];
+  index: number;
+}) {
+  const ref = useReveal();
+  const reverse = index % 2 === 1;
 
   return (
-    <section id="features" ref={ref} className="section-reveal py-24 md:py-36" style={{ background: "#F5F0EB" }}>
-      <div className="mx-auto max-w-[1400px] px-6 sm:px-8 lg:px-12">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-5">
-          {cards.map((card, i) => (
-            <div
-              key={i}
-              className={`showcase-card ${i === activeCard ? "showcase-card-active" : ""}`}
-              onMouseEnter={() => setActiveCard(i)}
-            >
-              {/* Background media */}
-              <div className="showcase-card-bg">
-                {card.mediaType === "video" ? (
-                  <video autoPlay muted loop playsInline>
-                    <source src={card.media} type="video/mp4" />
-                  </video>
-                ) : (
-                  <img src={card.media} alt={card.title} loading="lazy" />
-                )}
-              </div>
-
-              {/* Overlay content */}
-              <div className="showcase-card-content">
-                <div className="flex items-start justify-between mb-auto">
-                  <span className="text-xs font-medium opacity-60">{card.num}</span>
-                  <div className="showcase-card-icon">{card.icon}</div>
-                </div>
-
-                <div>
-                  <h3 className="text-xl md:text-2xl font-semibold leading-tight mb-3 whitespace-pre-line">
-                    {card.title}
-                  </h3>
-                  <p className="text-sm opacity-70 leading-relaxed">
-                    {card.description}
-                  </p>
-                </div>
-
-                <div className="mt-4 flex items-center gap-3">
-                  <button
-                    className="showcase-card-arrow"
-                    onClick={() => setActiveCard(i === 0 ? cards.length - 1 : i - 1)}
-                    aria-label="Previous"
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
-                  </button>
-                  <button
-                    className="showcase-card-arrow"
-                    onClick={() => setActiveCard(i === cards.length - 1 ? 0 : i + 1)}
-                    aria-label="Next"
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
+    <div
+      ref={ref}
+      className="section-reveal grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-20 items-center mb-24 md:mb-32 last:mb-0"
+    >
+      <div className={`flex ${reverse ? "lg:order-2 lg:justify-end" : "lg:justify-start"}`}>
+        <div className="media-card feature-media">
+          <video autoPlay muted loop playsInline>
+            <source src={feature.media} type="video/mp4" />
+          </video>
         </div>
+      </div>
+      <div className={reverse ? "lg:order-1" : ""}>
+        <span className="text-xs font-semibold text-[#9CA3AF] tracking-widest uppercase block mb-4">
+          {feature.num}
+        </span>
+        <h3 className="text-3xl md:text-4xl font-semibold text-[#1A1A1A] tracking-tight mb-5 leading-tight">
+          {feature.title}
+        </h3>
+        <p className="text-[#6B7280] text-base md:text-lg leading-relaxed max-w-md">
+          {feature.description}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function FeaturesShowcase() {
+  return (
+    <section
+      id="features"
+      className="features-section py-24 md:py-36"
+      style={{ background: "#FAF7F2" }}
+    >
+      {/* Hand-drawn walk-through line snaking between rows */}
+      <svg
+        className="features-walkline"
+        viewBox="0 0 1200 3200"
+        preserveAspectRatio="none"
+        aria-hidden="true"
+      >
+        {/* Dashed zigzag */}
+        <path
+          d="M 600 0
+             Q 240 360,  600 720
+             Q 960 1080, 600 1440
+             Q 240 1800, 600 2160
+             Q 960 2520, 600 2880
+             Q 300 3100, 600 3200"
+          stroke="#1A1A1A"
+          strokeWidth="1.5"
+          strokeDasharray="5 9"
+          fill="none"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          opacity="0.55"
+        />
+      </svg>
+
+      <div className="features-inner relative mx-auto max-w-[1200px] px-6 sm:px-8 lg:px-12">
+        <div className="mb-16 md:mb-20">
+          <div className="about-divider" />
+          <h2 className="text-2xl md:text-3xl font-light text-[#1A1A1A] tracking-tight">
+            Our <em className="font-semibold not-italic">Features</em>
+          </h2>
+        </div>
+        {features.map((f, i) => (
+          <FeatureRow key={f.num} feature={f} index={i} />
+        ))}
       </div>
     </section>
   );
@@ -780,6 +1042,37 @@ function FeatureCardsRow() {
 /* ------------------------------------------------------------------ */
 /*  Trust / Stats Section                                              */
 /* ------------------------------------------------------------------ */
+
+function Clippy3DStack() {
+  return (
+    <div className="clippy3d-scene" aria-hidden="true">
+      <div className="clippy3d-card clippy3d-card-1">
+        <span className="clippy3d-badge">TXT</span>
+        <span className="clippy3d-title">Meeting notes — sync with design</span>
+        <span className="clippy3d-meta">just now &middot; Notes</span>
+      </div>
+      <div className="clippy3d-card clippy3d-card-2">
+        <span className="clippy3d-badge clippy3d-badge-link">URL</span>
+        <span className="clippy3d-title clippy3d-title-link">https://clippybar.app</span>
+        <span className="clippy3d-meta">2m ago &middot; Arc</span>
+      </div>
+      <div className="clippy3d-card clippy3d-card-3">
+        <span className="clippy3d-badge clippy3d-badge-img">IMG</span>
+        <span className="clippy3d-thumb" />
+        <span className="clippy3d-meta">7m ago &middot; Screenshot</span>
+      </div>
+      <div className="clippy3d-card clippy3d-card-4">
+        <span className="clippy3d-badge clippy3d-badge-code">CODE</span>
+        <span className="clippy3d-title clippy3d-title-code">const x = clipboard.get()</span>
+        <span className="clippy3d-meta">14m ago &middot; VS Code</span>
+      </div>
+      <div className="clippy3d-keycap">
+        <span>⌥</span>
+        <span>V</span>
+      </div>
+    </div>
+  );
+}
 
 function TrustSection() {
   const ref = useReveal();
@@ -794,11 +1087,9 @@ function TrustSection() {
     <section ref={ref} className="section-reveal py-24 md:py-36 bg-white">
       <div className="mx-auto max-w-[1400px] px-6 sm:px-8 lg:px-12">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
-          {/* Left: large media */}
-          <div className="media-card">
-            <video autoPlay muted loop playsInline>
-              <source src="/demos/clippy-demo.mp4" type="video/mp4" />
-            </video>
+          {/* Left: 3D clipboard stack */}
+          <div className="flex justify-center lg:justify-start">
+            <Clippy3DStack />
           </div>
 
           {/* Right: heading + stats */}
@@ -830,114 +1121,6 @@ function TrustSection() {
 /* ------------------------------------------------------------------ */
 /*  Features Detail / Bento Grid                                       */
 /* ------------------------------------------------------------------ */
-
-function FeaturesDetail() {
-  const ref = useReveal();
-
-  return (
-    <section ref={ref} className="section-reveal py-24 md:py-36" style={{ background: "#F5F0EB" }}>
-      <div className="mx-auto max-w-[1400px] px-6 sm:px-8 lg:px-12">
-        <div className="mb-14 md:mb-20">
-          <div className="about-divider" />
-          <h2 className="text-2xl md:text-3xl font-light text-[#1A1A1A] tracking-tight">
-            Our <em className="font-semibold not-italic">Features</em>
-          </h2>
-        </div>
-
-        <div className="bento-grid">
-          {/* Large card — demo video */}
-          <div className="bento-large">
-            <div className="media-card relative">
-              <video autoPlay muted loop playsInline>
-                <source src="/demos/clippy-demo.mp4" type="video/mp4" />
-              </video>
-              <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/50 to-transparent">
-                <span className="text-white text-sm font-semibold tracking-wide uppercase">
-                  Smart History
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Smaller cards */}
-          <div>
-            <div className="media-card relative">
-              <img
-                src="/demos/filters-gif.gif"
-                alt="Filter by type"
-                loading="lazy"
-              />
-              <div className="absolute bottom-0 left-0 right-0 p-5 bg-gradient-to-t from-black/50 to-transparent">
-                <span className="text-white text-sm font-semibold tracking-wide uppercase">
-                  Type Filters
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <div className="media-card relative">
-              <img
-                src="/demos/pin-item.gif"
-                alt="Pin important items"
-                loading="lazy"
-              />
-              <div className="absolute bottom-0 left-0 right-0 p-5 bg-gradient-to-t from-black/50 to-transparent">
-                <span className="text-white text-sm font-semibold tracking-wide uppercase">
-                  Pin Items
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/*  Privacy Section                                                    */
-/* ------------------------------------------------------------------ */
-
-function PrivacySection() {
-  const ref = useReveal();
-
-  return (
-    <section id="privacy" ref={ref} className="section-reveal py-24 md:py-36" style={{ background: "#1A1A1A" }}>
-      <div className="mx-auto max-w-[1400px] px-6 sm:px-8 lg:px-12">
-        <div className="max-w-2xl mx-auto text-center">
-          <h2
-            className="text-white font-bold mb-8"
-            style={{ fontSize: "clamp(1.75rem, 4vw, 2.5rem)" }}
-          >
-            Your clipboard never leaves your Mac.
-          </h2>
-          <p className="text-[#9CA3AF] text-lg leading-relaxed mb-14">
-            ClippyBar is built on a simple principle: your data is yours. No
-            cloud, no servers, no analytics. Just a fast, local clipboard
-            manager that respects your privacy.
-          </p>
-
-          <div className="flex flex-col gap-5 items-start max-w-md mx-auto mb-14">
-            {privacyPoints.map((point, i) => (
-              <div key={i} className="flex items-center gap-3">
-                <CheckIcon />
-                <span className="text-white text-base">{point}</span>
-              </div>
-            ))}
-          </div>
-
-          <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#22C55E]/10 border border-[#22C55E]/20">
-            <CheckIcon />
-            <span className="text-[#22C55E] font-semibold text-sm">
-              100% Local
-            </span>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
 
 /* ------------------------------------------------------------------ */
 /*  FAQ Section                                                        */
@@ -975,13 +1158,22 @@ function FAQSection() {
   const ref = useReveal();
 
   return (
-    <section id="faq" ref={ref} className="section-reveal py-24 md:py-36" style={{ background: "#F5F0EB" }}>
-      <div className="mx-auto max-w-[720px] px-6 sm:px-8 lg:px-12">
-        <div className="mb-14">
-          <div className="about-divider" />
-          <h2 className="text-2xl md:text-3xl font-light text-[#1A1A1A] tracking-tight">
-            Frequently Asked <em className="font-semibold not-italic">Questions</em>
+    <section id="faq" ref={ref} className="section-reveal py-24 md:py-36" style={{ background: "#FAF7F2" }}>
+      <div className="mx-auto max-w-[800px] px-6 sm:px-8 lg:px-12">
+        <div className="text-center mb-14 md:mb-16">
+          <span className="section-label mb-5">
+            <span className="section-label-dot" /> Have Questions?
+          </span>
+          <h2
+            className="text-[#1A1A1A] font-bold leading-[1.1] mb-4"
+            style={{ fontSize: "clamp(2rem, 4vw, 2.75rem)" }}
+          >
+            Frequently asked questions
           </h2>
+          <p className="text-[#6B7280] text-base leading-relaxed max-w-lg mx-auto">
+            Everything you need to know about ClippyBar: permissions, privacy,
+            and getting started.
+          </p>
         </div>
         <div>
           {faqs.map((faq, i) => (
@@ -1001,58 +1193,71 @@ function CTASection() {
   const ref = useReveal();
 
   return (
-    <section ref={ref} className="section-reveal py-24 md:py-36 bg-white">
-      <div className="mx-auto max-w-[1400px] px-6 sm:px-8 lg:px-12 text-center">
-        <h2
-          className="font-bold text-[#1A1A1A] mb-4"
-          style={{ fontSize: "clamp(1.75rem, 4vw, 2.5rem)" }}
-        >
-          Ready to paste smarter?
-        </h2>
-        <p className="text-[#6B7280] text-base mb-10 max-w-md mx-auto">
+    <section ref={ref} className="section-reveal cta-section">
+      <div className="mx-auto max-w-[760px] px-6 sm:px-8 lg:px-12 text-center flex flex-col items-center">
+        <span className="section-label mb-6">
+          <span className="section-label-dot" /> Get Started
+        </span>
+        <div className="cta-heading-wrap">
+          <h2 className="cta-heading">
+            Ready to paste{" "}
+            <span className="cta-heading-accent">smarter?</span>
+          </h2>
+          <motion.svg
+            className="cta-underline"
+            viewBox="0 0 300 20"
+            preserveAspectRatio="none"
+            aria-hidden="true"
+          >
+            <defs>
+              <linearGradient id="cta-underline-gradient" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%"   stopColor="#F472B6" />
+                <stop offset="50%"  stopColor="#FB923C" />
+                <stop offset="100%" stopColor="#FBBF24" />
+              </linearGradient>
+            </defs>
+            <motion.path
+              d="M 0,10 Q 75,0 150,10 Q 225,20 300,10"
+              stroke="url(#cta-underline-gradient)"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              fill="none"
+              initial={{ pathLength: 0, opacity: 0 }}
+              whileInView={{ pathLength: 1, opacity: 1 }}
+              viewport={{ once: true, amount: 0.6 }}
+              transition={{ duration: 1.4, ease: "easeInOut" }}
+            />
+          </motion.svg>
+        </div>
+        <p className="cta-sub">
           Download ClippyBar for free and experience a clipboard that works the
-          way you think.
+          way you think. No subscriptions, no accounts, no catch.
         </p>
-        <div className="mb-6">
-          <a href={APP_STORE_URL} className="btn-primary gap-2">
+        <div className="mb-5 flex flex-col sm:flex-row items-center gap-3">
+          <a
+            href={APP_STORE_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn-primary gap-2"
+          >
             <AppleIcon />
             Download Free
           </a>
+          <a
+            href={GITHUB_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="cta-github"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+            </svg>
+            Leave us a star on GitHub
+          </a>
         </div>
-        <p className="text-xs text-[#9CA3AF] tracking-wide uppercase">
+        <p className="cta-meta">
           macOS 13+ &middot; Apple Silicon &amp; Intel &middot; Free forever
         </p>
-      </div>
-    </section>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/*  Privacy Policy                                                     */
-/* ------------------------------------------------------------------ */
-
-function PrivacyPolicy() {
-  return (
-    <section
-      id="privacy-policy"
-      className="py-20"
-      style={{ background: "#F5F0EB", borderTop: "1px solid rgba(0,0,0,0.06)" }}
-    >
-      <div className="mx-auto max-w-[720px] px-6 sm:px-8 lg:px-12">
-        <h2
-          className="font-bold text-[#1A1A1A] mb-8"
-          style={{ fontSize: "clamp(1.5rem, 4vw, 2rem)" }}
-        >
-          Privacy Policy
-        </h2>
-        <p className="text-[#1A1A1A] text-base leading-7 mb-6">
-          ClippyBar does not collect, store, or transmit any personal data. All
-          clipboard data is stored locally on your Mac in ~/Library/Application
-          Support/ClippyBar/. The app makes zero network requests. No analytics,
-          no telemetry, no tracking. Optional memory-only mode ensures nothing
-          is written to disk.
-        </p>
-        <p className="text-sm text-[#9CA3AF]">Last updated: March 2026</p>
       </div>
     </section>
   );
@@ -1067,23 +1272,40 @@ function Footer() {
     <footer className="py-10" style={{ background: "#1A1A1A" }}>
       <div className="mx-auto max-w-[1400px] px-6 sm:px-8 lg:px-12">
         <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="flex items-center gap-2">
-            <ClippyBarLogo size={22} fill="#FFFFFF" />
+          <div className="flex items-center gap-0.5">
+            <ClippyBarLogo size={30} fill="#FFFFFF" />
             <span className="text-sm font-semibold text-white tracking-tight">
               ClippyBar
             </span>
           </div>
 
-          <div className="flex items-center gap-8">
+          <div className="flex flex-wrap justify-center items-center gap-x-6 gap-y-3 sm:gap-8">
             <a href="#features" className="text-xs text-[#9CA3AF] uppercase tracking-widest hover:text-white transition-colors no-underline">
               Features
-            </a>
-            <a href="#privacy" className="text-xs text-[#9CA3AF] uppercase tracking-widest hover:text-white transition-colors no-underline">
-              Privacy
             </a>
             <a href="#faq" className="text-xs text-[#9CA3AF] uppercase tracking-widest hover:text-white transition-colors no-underline">
               FAQ
             </a>
+            <span className="footer-tooltip">
+              <button
+                type="button"
+                className="text-xs text-[#9CA3AF] uppercase tracking-widest hover:text-white transition-colors bg-transparent border-none p-0 cursor-help"
+                aria-describedby="privacy-policy-tooltip"
+              >
+                Privacy
+              </button>
+              <span id="privacy-policy-tooltip" role="tooltip" className="footer-tooltip-panel">
+                <span className="footer-tooltip-title">Privacy Policy</span>
+                <span className="footer-tooltip-body">
+                  ClippyBar does not collect, store, or transmit any personal
+                  data. All clipboard data is stored locally on your Mac in
+                  ~/Library/Application Support/ClippyBar/. The app makes zero
+                  network requests. No analytics, no telemetry, no tracking.
+                  Optional memory-only mode ensures nothing is written to disk.
+                </span>
+                <span className="footer-tooltip-meta">Last updated: March 2026</span>
+              </span>
+            </span>
             <a
               href={GITHUB_URL}
               target="_blank"
@@ -1122,13 +1344,10 @@ export default function Home() {
       <main>
         <HeroSection />
         <AboutSection />
-        <FeatureCardsRow />
+        <FeaturesShowcase />
         <TrustSection />
-        <FeaturesDetail />
-        <PrivacySection />
         <FAQSection />
         <CTASection />
-        <PrivacyPolicy />
       </main>
       <Footer />
     </>
