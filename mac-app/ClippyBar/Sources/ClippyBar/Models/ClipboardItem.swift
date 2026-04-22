@@ -8,6 +8,7 @@ struct ClipboardItem: Identifiable, Codable, Equatable, Hashable {
     let contentType: ContentType
     let timestamp: Date
     var isPinned: Bool
+    var pinnedAt: Date?
     let sourceApp: String?
 
     enum ContentType: String, Codable {
@@ -23,6 +24,7 @@ struct ClipboardItem: Identifiable, Codable, Equatable, Hashable {
         contentType: ContentType = .text,
         timestamp: Date = Date(),
         isPinned: Bool = false,
+        pinnedAt: Date? = nil,
         sourceApp: String? = nil
     ) {
         self.id = id
@@ -30,6 +32,7 @@ struct ClipboardItem: Identifiable, Codable, Equatable, Hashable {
         self.contentType = contentType
         self.timestamp = timestamp
         self.isPinned = isPinned
+        self.pinnedAt = pinnedAt
         self.sourceApp = sourceApp
     }
 

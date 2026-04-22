@@ -84,6 +84,7 @@ final class ClipboardStore: ObservableObject {
                 content_type TEXT NOT NULL DEFAULT 'text',
                 timestamp REAL NOT NULL,
                 is_pinned INTEGER NOT NULL DEFAULT 0,
+                pinned_at REAL,
                 source_app TEXT
             );
             CREATE INDEX IF NOT EXISTS idx_timestamp ON clipboard_items(timestamp);
@@ -95,6 +96,12 @@ final class ClipboardStore: ObservableObject {
                 sqlite3_free(errMsg)
             }
         }
+
+        // Migration: add pinned_at column to pre-existing tables. Errors are
+        // ignored — SQLite returns an error if the column already exists.
+        sqlite3_exec(db, "ALTER TABLE clipboard_items ADD COLUMN pinned_at REAL;", nil, nil, nil)
+        // Backfill pinned_at for existing pinned rows so their order is stable.
+        sqlite3_exec(db, "UPDATE clipboard_items SET pinned_at = timestamp WHERE is_pinned = 1 AND pinned_at IS NULL;", nil, nil, nil)
     }
 
     // MARK: - CRUD
@@ -102,7 +109,7 @@ final class ClipboardStore: ObservableObject {
     private func loadItems() {
         guard let db = db, !memoryOnlyMode else { return }
 
-        let sql = "SELECT id, content, content_type, timestamp, is_pinned, source_app FROM clipboard_items ORDER BY timestamp DESC;"
+        let sql = "SELECT id, content, content_type, timestamp, is_pinned, pinned_at, source_app FROM clipboard_items ORDER BY timestamp DESC;"
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return }
         defer { sqlite3_finalize(stmt) }
@@ -118,7 +125,10 @@ final class ClipboardStore: ObservableObject {
             let contentTypeRaw = String(cString: typePtr)
             let timestamp = Date(timeIntervalSince1970: sqlite3_column_double(stmt, 3))
             let isPinned = sqlite3_column_int(stmt, 4) != 0
-            let sourceApp: String? = sqlite3_column_text(stmt, 5).map { String(cString: $0) }
+            let pinnedAt: Date? = sqlite3_column_type(stmt, 5) == SQLITE_NULL
+                ? nil
+                : Date(timeIntervalSince1970: sqlite3_column_double(stmt, 5))
+            let sourceApp: String? = sqlite3_column_text(stmt, 6).map { String(cString: $0) }
 
             loaded.append(ClipboardItem(
                 id: id,
@@ -126,6 +136,7 @@ final class ClipboardStore: ObservableObject {
                 contentType: ClipboardItem.ContentType(rawValue: contentTypeRaw) ?? .text,
                 timestamp: timestamp,
                 isPinned: isPinned,
+                pinnedAt: pinnedAt,
                 sourceApp: sourceApp
             ))
         }
@@ -156,6 +167,7 @@ final class ClipboardStore: ObservableObject {
                     contentType: item.contentType,
                     timestamp: item.timestamp,
                     isPinned: true,
+                    pinnedAt: existing.pinnedAt ?? Date(),
                     sourceApp: item.sourceApp
                 )
             }
@@ -272,11 +284,13 @@ final class ClipboardStore: ObservableObject {
         guard let index = items.firstIndex(where: { $0.id == item.id }) else { return }
         items[index].isPinned.toggle()
         let newPinned = items[index].isPinned
+        let newPinnedAt: Date? = newPinned ? Date() : nil
+        items[index].pinnedAt = newPinnedAt
         let dbPtr = SendableDBPointer(pointer: self.db)
         let memOnly = self.memoryOnlyMode
         let itemId = item.id
         dbQueue.async {
-            Self.updatePinInDB(db: dbPtr.pointer, memoryOnly: memOnly, id: itemId, isPinned: newPinned)
+            Self.updatePinInDB(db: dbPtr.pointer, memoryOnly: memOnly, id: itemId, isPinned: newPinned, pinnedAt: newPinnedAt)
         }
     }
 
@@ -288,6 +302,7 @@ final class ClipboardStore: ObservableObject {
             contentType: ClipboardItem.looksLikeURL(newContent) ? .link : .text,
             timestamp: item.timestamp,
             isPinned: item.isPinned,
+            pinnedAt: item.pinnedAt,
             sourceApp: item.sourceApp
         )
         items[index] = updated
@@ -327,6 +342,7 @@ final class ClipboardStore: ObservableObject {
             contentType: updated.contentType,
             timestamp: newTimestamp,
             isPinned: updated.isPinned,
+            pinnedAt: updated.pinnedAt,
             sourceApp: updated.sourceApp
         )
         items.insert(updated, at: 0)
@@ -383,7 +399,7 @@ final class ClipboardStore: ObservableObject {
     private nonisolated static func insertIntoDB(db: OpaquePointer?, memoryOnly: Bool, item: ClipboardItem) {
         guard let db = db, !memoryOnly else { return }
 
-        let sql = "INSERT OR REPLACE INTO clipboard_items (id, content, content_type, timestamp, is_pinned, source_app) VALUES (?, ?, ?, ?, ?, ?);"
+        let sql = "INSERT OR REPLACE INTO clipboard_items (id, content, content_type, timestamp, is_pinned, pinned_at, source_app) VALUES (?, ?, ?, ?, ?, ?, ?);"
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return }
         defer { sqlite3_finalize(stmt) }
@@ -393,10 +409,15 @@ final class ClipboardStore: ObservableObject {
         sqlite3_bind_text(stmt, 3, item.contentType.rawValue, -1, SQLITE_TRANSIENT)
         sqlite3_bind_double(stmt, 4, item.timestamp.timeIntervalSince1970)
         sqlite3_bind_int(stmt, 5, item.isPinned ? 1 : 0)
-        if let app = item.sourceApp {
-            sqlite3_bind_text(stmt, 6, app, -1, SQLITE_TRANSIENT)
+        if let pinnedAt = item.pinnedAt {
+            sqlite3_bind_double(stmt, 6, pinnedAt.timeIntervalSince1970)
         } else {
             sqlite3_bind_null(stmt, 6)
+        }
+        if let app = item.sourceApp {
+            sqlite3_bind_text(stmt, 7, app, -1, SQLITE_TRANSIENT)
+        } else {
+            sqlite3_bind_null(stmt, 7)
         }
 
         sqlite3_step(stmt)
@@ -412,14 +433,19 @@ final class ClipboardStore: ObservableObject {
         sqlite3_step(stmt)
     }
 
-    private nonisolated static func updatePinInDB(db: OpaquePointer?, memoryOnly: Bool, id: String, isPinned: Bool) {
+    private nonisolated static func updatePinInDB(db: OpaquePointer?, memoryOnly: Bool, id: String, isPinned: Bool, pinnedAt: Date?) {
         guard let db = db, !memoryOnly else { return }
-        let sql = "UPDATE clipboard_items SET is_pinned = ? WHERE id = ?;"
+        let sql = "UPDATE clipboard_items SET is_pinned = ?, pinned_at = ? WHERE id = ?;"
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return }
         defer { sqlite3_finalize(stmt) }
         sqlite3_bind_int(stmt, 1, isPinned ? 1 : 0)
-        sqlite3_bind_text(stmt, 2, id, -1, SQLITE_TRANSIENT)
+        if let pinnedAt = pinnedAt {
+            sqlite3_bind_double(stmt, 2, pinnedAt.timeIntervalSince1970)
+        } else {
+            sqlite3_bind_null(stmt, 2)
+        }
+        sqlite3_bind_text(stmt, 3, id, -1, SQLITE_TRANSIENT)
         sqlite3_step(stmt)
     }
 

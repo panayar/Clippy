@@ -9,6 +9,8 @@ struct PickerView: View {
     @State private var activeFilters: Set<ClipboardItem.ContentType> = []
     @State private var editingItem: ClipboardItem?
     @State private var editText: String = ""
+    @State private var visibleItemIds: Set<String> = []
+    @State private var suppressVisibilitySnap: Bool = false
     @FocusState private var isEditFocused: Bool
     @Namespace private var chipNamespace
 
@@ -17,7 +19,11 @@ struct PickerView: View {
     }
 
     private var pinnedItems: [ClipboardItem] {
-        filteredItems.filter { $0.isPinned }
+        filteredItems.filter { $0.isPinned }.sorted { lhs, rhs in
+            // Most recently pinned items appear first.
+            // Fall back to timestamp for legacy items without a pinned_at.
+            (lhs.pinnedAt ?? lhs.timestamp) > (rhs.pinnedAt ?? rhs.timestamp)
+        }
     }
 
     private var unpinnedItems: [ClipboardItem] {
@@ -91,19 +97,23 @@ struct PickerView: View {
         }
         .background(.clear)
         .onAppear {
-            selectedIndex = pinnedItems.count
+            selectedIndex = 0
             searchText = ""
+            visibleItemIds.removeAll()
         }
         .onChange(of: searchText) { _ in
-            selectedIndex = pinnedItems.count
+            selectedIndex = 0
+            visibleItemIds.removeAll()
         }
         .onChange(of: activeFilters) { _ in
-            selectedIndex = pinnedItems.count
+            selectedIndex = 0
+            visibleItemIds.removeAll()
         }
         .onReceive(NotificationCenter.default.publisher(for: .clipBarPickerShown)) { _ in
-            selectedIndex = pinnedItems.count
+            selectedIndex = 0
             searchText = ""
             activeFilters = []
+            visibleItemIds.removeAll()
         }
         .onReceive(NotificationCenter.default.publisher(for: .clipBarMoveUp)) { _ in
             moveSelection(by: -1)
@@ -168,6 +178,7 @@ struct PickerView: View {
             filterChip(label: "Text", icon: "doc.text", type: .text)
             filterChip(label: "Links", icon: "link", type: .link)
             filterChip(label: "Files", icon: "doc.fill", type: .file)
+            filterChip(label: "Images", icon: "photo", type: .image)
             Spacer()
         }
     }
@@ -275,10 +286,32 @@ struct PickerView: View {
             .onChange(of: selectedIndex) { newIndex in
                 if let item = orderedItems[safe: newIndex] {
                     let scrollId = item.isPinned ? "pinned-\(item.id)" : item.id
+                    suppressVisibilitySnap = true
                     withAnimation(.easeOut(duration: 0.1)) {
                         proxy.scrollTo(scrollId, anchor: .center)
                     }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                        suppressVisibilitySnap = false
+                    }
                 }
+            }
+        }
+    }
+
+    /// Called from row onAppear/onDisappear. If the user scrolled the
+    /// selected row off-screen, snap the selection to the first row that
+    /// is currently visible so the highlight always stays on-screen.
+    private func snapSelectionIfHidden() {
+        guard !suppressVisibilitySnap else { return }
+        let items = orderedItems
+        guard !items.isEmpty, !visibleItemIds.isEmpty else { return }
+        guard let selectedItem = items[safe: selectedIndex] else { return }
+        if visibleItemIds.contains(selectedItem.id) { return }
+        if let firstVisibleIndex = items.firstIndex(where: { visibleItemIds.contains($0.id) }) {
+            suppressVisibilitySnap = true
+            selectedIndex = firstVisibleIndex
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                suppressVisibilitySnap = false
             }
         }
     }
@@ -332,7 +365,7 @@ struct PickerView: View {
                         withAnimation(.easeInOut(duration: 0.2)) {
                             store.togglePin(item)
                         }
-                        selectedIndex = pinnedItems.count
+                        selectedIndex = globalIndexFor(item: item)
                     }
 
                     if item.contentType == .text || item.contentType == .link {
@@ -385,11 +418,18 @@ struct PickerView: View {
             selectedIndex = index
             selectCurrentItem()
         }
+        .onAppear {
+            visibleItemIds.insert(item.id)
+        }
+        .onDisappear {
+            visibleItemIds.remove(item.id)
+            snapSelectionIfHidden()
+        }
         .contextMenu {
             Button(item.isPinned ? "Unpin" : "Pin") {
                 hoveredId = nil
                 store.togglePin(item)
-                selectedIndex = pinnedItems.count
+                selectedIndex = globalIndexFor(item: item)
             }
             if item.contentType == .text || item.contentType == .link {
                 Button("Edit") {
@@ -552,9 +592,7 @@ struct PickerView: View {
         withAnimation(.easeInOut(duration: 0.2)) {
             store.togglePin(item)
         }
-        // After pinning/unpinning, move selection to the first unpinned item
-        // so pinned items don't remain visually selected
-        selectedIndex = pinnedItems.count
+        selectedIndex = globalIndexFor(item: item)
     }
 
     private func editSelectedItem() {
