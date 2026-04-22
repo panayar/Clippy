@@ -1,3 +1,4 @@
+import AppKit
 import ApplicationServices
 import Foundation
 
@@ -8,16 +9,27 @@ enum Permissions {
         AXIsProcessTrusted()
     }
 
-    /// Register the app in the Accessibility list without showing the
-    /// system prompt dialog.  The user still needs to flip the toggle
-    /// in System Settings, but the app will already appear in the list.
-    static func registerInAccessibilityList() {
-        guard !isAccessibilityEnabled() else { return }
+    /// Register the app in TCC's Accessibility list so it shows up in
+    /// System Settings with a toggle — without triggering Apple's own
+    /// permission prompt dialog. We accomplish this by invoking an AX
+    /// API that requires Accessibility permission: TCC registers the
+    /// calling app on first use even though the call itself fails.
+    @discardableResult
+    static func registerInAccessibilityList() -> Bool {
+        let systemWide = AXUIElementCreateSystemWide()
+        var value: CFTypeRef?
+        _ = AXUIElementCopyAttributeValue(
+            systemWide,
+            kAXFocusedUIElementAttribute as CFString,
+            &value
+        )
+        return AXIsProcessTrusted()
+    }
 
-        let options = [
-            kAXTrustedCheckOptionPrompt.takeUnretainedValue(): false
-        ] as CFDictionary
-
-        AXIsProcessTrustedWithOptions(options)
+    /// Opens System Settings → Privacy & Security → Accessibility.
+    static func openAccessibilitySettings() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
+            NSWorkspace.shared.open(url)
+        }
     }
 }

@@ -197,15 +197,7 @@ struct OnboardingView: View {
                 VStack(spacing: 12) {
                     AnimatedToggleHint()
 
-                    Button(action: {
-                        // Register the app in the Accessibility list (no dialog)
-                        // so the user only has to flip the toggle in Settings.
-                        Permissions.registerInAccessibilityList()
-
-                        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
-                            NSWorkspace.shared.open(url)
-                        }
-                    }) {
+                    Button(action: openAccessibility) {
                         HStack(spacing: 6) {
                             Image(systemName: "gear")
                             Text("Open Accessibility Settings")
@@ -219,6 +211,18 @@ struct OnboardingView: View {
                     .buttonStyle(.plain)
                 }
             }
+        }
+    }
+
+    private func openAccessibility() {
+        // Registers the app in TCC's Accessibility list so a toggle
+        // appears in System Settings. This also shows Apple's system
+        // dialog on first call — if the user clicks "Open System
+        // Settings" there, we're done. Otherwise our own URL below
+        // opens the Accessibility pane as a fallback.
+        Permissions.registerInAccessibilityList()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            Permissions.openAccessibilitySettings()
         }
     }
 
@@ -269,9 +273,8 @@ struct AccessibilityPromptView: View {
 
             Button(action: {
                 Permissions.registerInAccessibilityList()
-
-                if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
-                    NSWorkspace.shared.open(url)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                    Permissions.openAccessibilitySettings()
                 }
             }) {
                 HStack(spacing: 6) {

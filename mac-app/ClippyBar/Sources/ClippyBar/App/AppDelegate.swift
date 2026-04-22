@@ -27,6 +27,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // Always start these — they don't need accessibility
             state.monitor.start(store: state.store)
             PickerWindowController.shared.configure(store: state.store, monitor: state.monitor)
+            MenuBarController.shared.setup(store: state.store, monitor: state.monitor)
             registerHotkey()
 
             if isFirstLaunch {
