@@ -1,66 +1,13 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import dynamic from "next/dynamic";
-
-const GradientBackground = dynamic(() => import("shadergradient").then((mod) => {
-  const { ShaderGradientCanvas, ShaderGradient } = mod;
-  function Gradient() {
-    const [ready, setReady] = useState(false);
-    useEffect(() => {
-      // Delay reveal so the shader settles into its configured state
-      const timer = setTimeout(() => setReady(true), 600);
-      return () => clearTimeout(timer);
-    }, []);
-    return (
-      <div style={{
-        width: "100%", height: "100%",
-        opacity: ready ? 1 : 0,
-        transition: "opacity 0.8s ease-in",
-      }}>
-        <ShaderGradientCanvas
-          style={{ width: "100%", height: "100%", pointerEvents: "none" }}
-        >
-          <ShaderGradient
-            animate="on"
-            brightness={1}
-            cAzimuthAngle={180}
-            cDistance={2.8}
-            cPolarAngle={80}
-            cameraZoom={9.1}
-            color1="#606080"
-            color2="#8d7dca"
-            color3="#212121"
-            envPreset="city"
-            grain="on"
-            lightType="3d"
-            positionX={0}
-            positionY={0}
-            positionZ={0}
-            reflection={0.1}
-            rotationX={50}
-            rotationY={0}
-            rotationZ={-60}
-            type="waterPlane"
-            uAmplitude={0}
-            uDensity={1.5}
-            uFrequency={0}
-            uSpeed={0.3}
-            uStrength={1.5}
-            uTime={8}
-          />
-        </ShaderGradientCanvas>
-      </div>
-    );
-  }
-  return { default: Gradient };
-}), { ssr: false });
+import { useState, useEffect, useRef, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 
 /* ------------------------------------------------------------------ */
-/*  Scroll-reveal hook (per Act, triggers at 20% visibility)           */
+/*  Scroll-reveal hook                                                 */
 /* ------------------------------------------------------------------ */
 
-function useActReveal() {
+function useReveal() {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -82,7 +29,7 @@ function useActReveal() {
           observer.unobserve(el);
         }
       },
-      { threshold: 0.2 }
+      { threshold: 0.15 }
     );
 
     observer.observe(el);
@@ -93,12 +40,12 @@ function useActReveal() {
 }
 
 /* ------------------------------------------------------------------ */
-/*  ClippyBar Logo SVG                                                   */
+/*  ClippyBar Logo SVG                                                 */
 /* ------------------------------------------------------------------ */
 
 function ClippyBarLogo({
   size = 24,
-  fill = "#1D1D1F",
+  fill = "#1A1A1A",
   className = "",
 }: {
   size?: number;
@@ -131,7 +78,7 @@ function ClippyBarLogo({
 
 function MenuIcon() {
   return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <line x1="4" y1="6" x2="20" y2="6" />
       <line x1="4" y1="12" x2="20" y2="12" />
       <line x1="4" y1="18" x2="20" y2="18" />
@@ -141,7 +88,7 @@ function MenuIcon() {
 
 function CloseIcon() {
   return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <line x1="18" y1="6" x2="6" y2="18" />
       <line x1="6" y1="6" x2="18" y2="18" />
     </svg>
@@ -150,9 +97,51 @@ function CloseIcon() {
 
 function PlusIcon({ className }: { className?: string }) {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
       <line x1="12" y1="5" x2="12" y2="19" />
       <line x1="5" y1="12" x2="19" y2="12" />
+    </svg>
+  );
+}
+
+function ArrowRight() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="5" y1="12" x2="19" y2="12" />
+      <polyline points="12 5 19 12 12 19" />
+    </svg>
+  );
+}
+
+function SearchIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="11" cy="11" r="8" />
+      <path d="m21 21-4.35-4.35" />
+    </svg>
+  );
+}
+
+function ZapIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+    </svg>
+  );
+}
+
+function ShieldIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#22C55E" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="20 6 9 17 4 12" />
     </svg>
   );
 }
@@ -162,25 +151,8 @@ function AppleIcon() {
     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path
         d="M11.182 7.455c-.02-1.91 1.558-2.826 1.629-2.872-.887-1.296-2.267-1.474-2.759-1.494-1.174-.119-2.293.691-2.89.691-.597 0-1.52-.674-2.498-.656-1.285.019-2.47.747-3.131 1.899-1.335 2.315-.342 5.746.958 7.627.636.919 1.393 1.951 2.389 1.914.959-.038 1.321-.62 2.482-.62 1.161 0 1.492.62 2.511.6 1.031-.018 1.683-.937 2.316-1.858.73-1.066 1.031-2.098 1.049-2.152-.023-.01-2.013-.773-2.032-3.066l-.024.007zM9.286 2.048c.529-.641.886-1.531.789-2.419-.762.031-1.685.508-2.231 1.148-.49.567-.919 1.473-.804 2.342.851.066 1.719-.432 2.246-1.071z"
-        fill="#86868B"
+        fill="currentColor"
       />
-    </svg>
-  );
-}
-
-function DownArrowIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 5v14" />
-      <path d="m19 12-7 7-7-7" />
-    </svg>
-  );
-}
-
-function CheckmarkIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#34C759" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="20 6 9 17 4 12" />
     </svg>
   );
 }
@@ -189,66 +161,8 @@ function CheckmarkIcon() {
 /*  Data                                                               */
 /* ------------------------------------------------------------------ */
 
-// TODO: Replace with actual App Store ID once available
-const APP_STORE_URL = "https://apps.apple.com/app/clippybar/id#"; // placeholder
-
-
-const tabData = [
-  {
-    id: "history",
-    label: "History",
-    title: "Never lose a copy again",
-    description:
-      "Every text, link, and snippet you copy is saved automatically. Scroll through your full clipboard history and pick exactly what you need.",
-    shortcut: null,
-    illustration: "history",
-  },
-  {
-    id: "search",
-    label: "Search",
-    title: "Find anything instantly",
-    description:
-      "Start typing to filter your entire clipboard history in milliseconds. No more hunting through windows or tabs for that one thing you copied.",
-    shortcut: null,
-    illustration: "search",
-  },
-  {
-    id: "shortcuts",
-    label: "Shortcuts",
-    title: "One shortcut. Fully yours.",
-    description:
-      "Default Option+V opens ClippyBar anywhere. Customize it in Settings to any key combination that fits your workflow.",
-    shortcut: true,
-    illustration: "shortcuts",
-  },
-  {
-    id: "pinning",
-    label: "Pinning",
-    title: "Keep the important stuff",
-    description:
-      "Pin frequently-used snippets to the top of your picker. They stay there until you unpin them, no matter how many new items you copy.",
-    shortcut: null,
-    illustration: "pinning",
-  },
-  {
-    id: "exclusions",
-    label: "Exclusions",
-    title: "Block sensitive apps",
-    description:
-      "Automatically disable clipboard monitoring for password managers, banking apps, and anything else you want to keep private.",
-    shortcut: null,
-    illustration: "exclusions",
-  },
-  {
-    id: "autopaste",
-    label: "Auto-Paste",
-    title: "Select and paste in one motion",
-    description:
-      "When Auto-Paste is on, selecting an item immediately pastes it into the active app. One step instead of two. Toggle on or off anytime.",
-    shortcut: null,
-    illustration: "autopaste",
-  },
-];
+const APP_STORE_URL = "https://apps.apple.com/co/app/clippybar/id6760884112?l=en-GB&mt=12";
+const GITHUB_URL = "https://github.com/panayar/Clippy";
 
 const faqs = [
   {
@@ -279,10 +193,10 @@ const faqs = [
 ];
 
 const privacyPoints = [
-  "All data stored locally",
-  "Zero network connections",
-  "Optional memory-only mode",
-  "Exclude sensitive apps",
+  "All data stored locally on your Mac",
+  "Zero network connections — ever",
+  "Optional memory-only mode for maximum privacy",
+  "Exclude sensitive apps from clipboard monitoring",
 ];
 
 /* ------------------------------------------------------------------ */
@@ -316,43 +230,39 @@ function Navigation() {
     { href: "#faq", label: "FAQ" },
   ];
 
+  const handleLinkClick = useCallback(() => setMobileOpen(false), []);
+
   return (
-    <nav
-      className={scrolled ? "nav-scrolled" : "nav-top"}
-      style={{ transition: "all 0.3s ease" }}
-    >
-      <div className="mx-auto max-w-[1200px] px-4 sm:px-6 lg:px-8">
-        <div className="flex h-14 items-center justify-between">
-          {/* Logo */}
-          <a href="#" className="flex items-center gap-2" style={{ transition: "opacity 0.3s" }}>
-            <span className="hidden sm:inline"><ClippyBarLogo size={72} fill={scrolled ? "#1D1D1F" : "#ffffff"} /></span>
-            <span className="sm:hidden"><ClippyBarLogo size={48} fill={scrolled ? "#1D1D1F" : "#ffffff"} /></span>
-            <span style={{ fontSize: 20, fontWeight: 600, color: scrolled ? "#1D1D1F" : "#ffffff", transition: "color 0.3s" }}>
+    <nav className={`nav-fixed ${scrolled ? "scrolled" : ""}`}>
+      <div className="mx-auto max-w-[1400px] px-6 sm:px-8 lg:px-12">
+        <div className="flex h-16 items-center justify-between">
+          {/* Left nav links */}
+          <div className="hidden md:flex items-center gap-8">
+            {navLinks.map((link) => (
+              <a key={link.href} href={link.href} className="nav-link">
+                {link.label}
+              </a>
+            ))}
+          </div>
+
+          {/* Center logo */}
+          <a href="#" className="flex items-center gap-2">
+            <ClippyBarLogo size={28} fill="#1A1A1A" />
+            <span className="text-base font-semibold tracking-tight text-[#1A1A1A]">
               ClippyBar
             </span>
           </a>
 
-          {/* Desktop links */}
-          <div className="hidden md:flex items-center gap-7">
-            {navLinks.map((link) => (
-              <a
-                key={link.href}
-                href={link.href}
-                className="link-hover"
-                style={{ fontSize: 14, color: scrolled ? "#1D1D1F" : "#ffffff", textDecoration: "none", transition: "color 0.3s" }}
-              >
-                {link.label}
-              </a>
-            ))}
-            <a href={APP_STORE_URL} className={scrolled ? "btn-nav" : "btn-nav-light"}>
-              Mac App Store
+          {/* Right download */}
+          <div className="hidden md:block">
+            <a href={APP_STORE_URL} className="btn-nav-download">
+              Download
             </a>
           </div>
 
-          {/* Mobile menu button */}
+          {/* Mobile hamburger */}
           <button
-            className="md:hidden"
-            style={{ color: scrolled ? "#1D1D1F" : "#ffffff", transition: "color 0.3s" }}
+            className="md:hidden text-[#1A1A1A]"
             onClick={() => setMobileOpen(!mobileOpen)}
             aria-label={mobileOpen ? "Close menu" : "Open menu"}
           >
@@ -361,38 +271,26 @@ function Navigation() {
         </div>
       </div>
 
-      {/* Mobile overlay */}
       {mobileOpen && (
-        <div
-          className="md:hidden fixed inset-0 top-14 z-40 glass mobile-menu-enter"
-          style={{ display: "flex", flexDirection: "column" }}
-        >
+        <div className="md:hidden fixed inset-0 top-16 z-40 bg-[#F5F0EB] mobile-menu-enter">
           <div className="px-6 py-8 flex flex-col gap-2">
             {navLinks.map((link) => (
               <a
                 key={link.href}
                 href={link.href}
-                style={{
-                  fontSize: 17,
-                  color: "#1D1D1F",
-                  textDecoration: "none",
-                  padding: "14px 16px",
-                  borderRadius: 12,
-                }}
-                className="link-hover"
-                onClick={() => setMobileOpen(false)}
+                className="text-sm font-semibold uppercase tracking-widest text-[#1A1A1A] no-underline py-4 px-4 border-b border-[rgba(0,0,0,0.06)]"
+                onClick={handleLinkClick}
               >
                 {link.label}
               </a>
             ))}
-            <div style={{ paddingTop: 16 }}>
+            <div className="pt-6">
               <a
                 href={APP_STORE_URL}
-                className="btn-primary"
-                style={{ width: "100%", textAlign: "center" }}
-                onClick={() => setMobileOpen(false)}
+                className="btn-primary w-full text-center"
+                onClick={handleLinkClick}
               >
-                Download on the Mac App Store
+                Download Free
               </a>
             </div>
           </div>
@@ -403,254 +301,376 @@ function Navigation() {
 }
 
 /* ------------------------------------------------------------------ */
-/*  ACT 1: THE HOOK — Hero + Live Demo (~100vh)                        */
+/*  Hero Section                                                       */
 /* ------------------------------------------------------------------ */
 
-function HeroAppMockup() {
+function ClippyPickerMock({ onSelect }: { onSelect: () => void }) {
+  const [selectedItem, setSelectedItem] = useState(-1);
+
+  useEffect(() => {
+    const t1 = setTimeout(() => setSelectedItem(0), 600);
+    const t2 = setTimeout(() => onSelect(), 1200);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, [onSelect]);
+
   return (
-    <div className="hero-mockup-wrapper">
-      {/* macOS desktop frame */}
-      <div className="hero-desktop-frame">
-        {/* Menu bar */}
-        <div style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "4px 16px",
-          background: "rgba(30,30,40,0.95)",
-          backdropFilter: "blur(20px)",
-          fontSize: 13,
-          color: "rgba(255,255,255,0.9)",
-          fontWeight: 500,
-        }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="rgba(255,255,255,0.9)">
-              <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
-            </svg>
-            <span>Finder</span>
-            <span style={{ opacity: 0.7 }}>File</span>
-            <span style={{ opacity: 0.7 }}>Edit</span>
-            <span style={{ opacity: 0.7 }}>View</span>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <ClippyBarLogo size={16} fill="rgba(255,255,255,0.9)" />
-            <span style={{ fontSize: 12, opacity: 0.7 }}>Tue 3:42 PM</span>
-          </div>
-        </div>
+    <div className="picker-mock">
+      {/* Search bar */}
+      <div className="picker-search">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5E5E62" strokeWidth="2" strokeLinecap="round">
+          <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
+        </svg>
+        <span className="picker-search-text">Search...</span>
+      </div>
 
-        {/* Desktop wallpaper area */}
-        <div style={{
-          position: "relative",
-          background: "linear-gradient(135deg, #1a1a2e 0%, #16213e 40%, #0f3460 100%)",
-          minHeight: 420,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          overflow: "hidden",
-        }}>
-          {/* Soft glow spots on wallpaper */}
-          <div style={{ position: "absolute", top: "20%", left: "30%", width: 300, height: 300, borderRadius: "50%", background: "radial-gradient(circle, rgba(88,86,214,0.15) 0%, transparent 70%)", filter: "blur(40px)", pointerEvents: "none" }} />
-          <div style={{ position: "absolute", bottom: "10%", right: "20%", width: 250, height: 250, borderRadius: "50%", background: "radial-gradient(circle, rgba(0,122,255,0.1) 0%, transparent 70%)", filter: "blur(40px)", pointerEvents: "none" }} />
+      {/* Filter chips */}
+      <div className="picker-filters">
+        {[
+          { label: "Text", icon: "doc.text", active: false },
+          { label: "Links", icon: "link", active: false },
+          { label: "Files", icon: "doc", active: false },
+          { label: "Images", icon: "photo", active: false },
+        ].map((chip) => (
+          <span key={chip.label} className={`picker-chip ${chip.active ? "picker-chip-active" : ""}`}>
+            {chip.label}
+          </span>
+        ))}
+      </div>
 
-          {/* ClippyBar picker window — centered on desktop */}
-          <div style={{
-            background: "rgba(255,255,255,0.97)",
-            borderRadius: 12,
-            boxShadow: "0 25px 80px rgba(0,0,0,0.35), 0 0 0 0.5px rgba(255,255,255,0.1)",
-            width: "min(400px, 80%)",
-            overflow: "hidden",
-          }}>
-            {/* Title bar */}
-            <div style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 12,
-              padding: "12px 16px",
-              borderBottom: "0.5px solid rgba(0,0,0,0.08)",
-            }}>
-              <div className="macos-dots">
-                <div className="macos-dot macos-dot-red" />
-                <div className="macos-dot macos-dot-yellow" />
-                <div className="macos-dot macos-dot-green" />
-              </div>
-              <div style={{
-                flex: 1,
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                background: "rgba(0,0,0,0.04)",
-                borderRadius: 8,
-                padding: "6px 10px",
-              }}>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#86868B" strokeWidth="2">
-                  <circle cx="11" cy="11" r="8" />
-                  <path d="m21 21-4.35-4.35" />
-                </svg>
-                <span style={{ fontSize: 13, color: "#86868B" }}>Search clipboard...</span>
-              </div>
-            </div>
+      <div className="picker-divider" />
 
-            {/* Pinned section */}
-            <div style={{ padding: "6px 12px 2px", fontSize: 10, color: "#86868B", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600 }}>Pinned</div>
-            {[
-              { text: "ssh deploy@prod.server.com", label: "CMD", cls: "pill-cmd" },
-              { text: "hello@clippy.bar", label: "EMAIL", cls: "pill-email" },
-            ].map((item, i) => (
-              <div key={i} style={{
-                display: "flex", alignItems: "center", height: 40, padding: "0 12px", gap: 10, margin: "0 8px", borderRadius: 8,
-                background: "rgba(255,149,0,0.04)",
-              }}>
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="#FF9500" stroke="#FF9500" strokeWidth="2"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16h14v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 2-2H6a2 2 0 0 0 2 2 1 1 0 0 1 1 1z"/></svg>
-                <span style={{ flex: 1, fontSize: 13, fontFamily: "SF Mono, Menlo, monospace", color: "#1D1D1F", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.text}</span>
-                <span className={`pill-badge ${item.cls}`} style={{ fontSize: 10 }}>{item.label}</span>
-              </div>
-            ))}
+      {/* Section */}
+      <div className="picker-section-label">Today</div>
 
-            {/* Recent section */}
-            <div style={{ padding: "8px 12px 2px", fontSize: 10, color: "#86868B", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, borderTop: "0.5px solid rgba(0,0,0,0.06)", marginTop: 4 }}>Recent</div>
-            {[
-              { text: "const api = await fetch(...)", label: "CODE", cls: "pill-code", active: true },
-              { text: "https://github.com/clipbar", label: "URL", cls: "pill-url", active: false },
-              { text: "Meeting notes: Q4 planning...", label: "NOTE", cls: "pill-note", active: false },
-            ].map((item, i) => (
-              <div key={i} style={{
-                display: "flex", alignItems: "center", height: 40, padding: "0 12px", gap: 10, margin: "0 8px", borderRadius: 8,
-                background: item.active ? "rgba(0,122,255,0.06)" : "transparent",
-              }}>
-                <span style={{ flex: 1, fontSize: 13, fontFamily: "SF Mono, Menlo, monospace", color: item.active ? "#007AFF" : "#1D1D1F", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.text}</span>
-                <span className={`pill-badge ${item.cls}`} style={{ fontSize: 10 }}>{item.label}</span>
-              </div>
-            ))}
-            <div style={{ height: 8 }} />
+      {/* Selected item: ClippyBar */}
+      <motion.div
+        className={`picker-item ${selectedItem === 0 ? "picker-item-selected" : ""}`}
+        animate={selectedItem === 0 ? { backgroundColor: "rgba(124, 58, 237, 0.12)" } : {}}
+        transition={{ duration: 0.25 }}
+      >
+        <div className="picker-item-content">
+          <span className="picker-item-text">ClippyBar</span>
+          <div className="picker-item-meta">
+            <span>just now</span>
+            <span className="picker-meta-dot">&middot;</span>
+            <span>Safari</span>
           </div>
         </div>
+      </motion.div>
+
+      {/* Link items */}
+      <div className="picker-item">
+        <div className="picker-item-icon picker-icon-link">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+        </div>
+        <div className="picker-item-content">
+          <span className="picker-item-text" style={{ color: "#8E8CE5" }}>https://www.recop.xyz/</span>
+          <div className="picker-item-meta">
+            <span>19h ago</span>
+            <span className="picker-meta-dot">&middot;</span>
+            <span>Google Chrome</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="picker-item">
+        <div className="picker-item-icon picker-icon-link">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+        </div>
+        <div className="picker-item-content">
+          <span className="picker-item-text" style={{ color: "#8E8CE5" }}>https://paulaanayar.com/</span>
+          <div className="picker-item-meta">
+            <span>19h ago</span>
+            <span className="picker-meta-dot">&middot;</span>
+            <span>iTerm2</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="picker-divider" style={{ margin: "4px 12px" }} />
+
+      {/* Image items */}
+      <div className="picker-item">
+        <div className="picker-thumb">
+          <div className="picker-thumb-placeholder" />
+        </div>
+        <div className="picker-item-content">
+          <span className="picker-item-text" style={{ color: "#8E8E93" }}>Image</span>
+          <div className="picker-item-meta">
+            <span>7m ago</span>
+            <span className="picker-meta-dot">&middot;</span>
+            <span>Lightshot Screenshot</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="picker-item">
+        <div className="picker-thumb">
+          <div className="picker-thumb-placeholder" style={{ background: "#2C2C2E" }} />
+        </div>
+        <div className="picker-item-content">
+          <span className="picker-item-text" style={{ color: "#8E8E93" }}>Image</span>
+          <div className="picker-item-meta">
+            <span>8m ago</span>
+            <span className="picker-meta-dot">&middot;</span>
+            <span>Lightshot Screenshot</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Status bar */}
+      <div className="picker-statusbar">
+        <span>63 items</span>
+        <span className="picker-statusbar-hints">
+          <span className="picker-hint-key">↑↓</span> navigate
+          <span className="picker-hint-key" style={{ marginLeft: 6 }}>↵</span> paste
+          <span className="picker-hint-key" style={{ marginLeft: 6 }}>⌘P</span> pin
+          <span className="picker-hint-key" style={{ marginLeft: 6 }}>⌘⌫</span> delete
+        </span>
       </div>
     </div>
   );
 }
 
-function Act1Hook() {
-  const [starCount, setStarCount] = useState<number | null>(null);
-  const [gradientKey, setGradientKey] = useState(() => Date.now());
+function HeroSection() {
+  const [phase, setPhase] = useState(0);
+  // 0: empty
+  // 1: cursor appears center, does a playful wiggle
+  // 2: cursor moves to the side, ⌥V shortcut appears center
+  // 3: picker appears center, cursor moves onto the first item
+  // 4: cursor clicks, picker closes, text pastes as title
+  // 5: cursor exits
+  // 6: rest of content reveals
 
-  useEffect(() => {
-    const onPageShow = (e: PageTransitionEvent) => {
-      if (e.persisted) setGradientKey((k) => k + 1);
-    };
-    window.addEventListener("pageshow", onPageShow);
-    return () => window.removeEventListener("pageshow", onPageShow);
+  const handlePickerSelect = useCallback(() => {
+    setPhase(4);
   }, []);
 
   useEffect(() => {
-    fetch("https://api.github.com/repos/panayar/Clippy")
-      .then((r) => r.ok ? r.json() : null)
-      .then((data) => {
-        if (data?.stargazers_count != null) setStarCount(data.stargazers_count);
-      })
-      .catch(() => {});
+    const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (prefersReduced) {
+      setPhase(6);
+      return;
+    }
+    const timers = [
+      setTimeout(() => setPhase(1), 300),    // cursor appears + wiggle
+      setTimeout(() => setPhase(2), 1800),   // cursor aside, shortcut center
+      setTimeout(() => setPhase(3), 2800),   // picker appears, cursor moves to item
+      // phase 4 triggered by picker onSelect (~1.2s after phase 3)
+      setTimeout(() => setPhase(5), 5200),   // cursor exits
+      setTimeout(() => setPhase(6), 5900),   // content reveals
+    ];
+    return () => timers.forEach(clearTimeout);
   }, []);
+
+  const word1 = "Clippy".split("");
+  const word2 = "Bar".split("");
 
   return (
-    <section
-      className="hero-section"
-      style={{
-        position: "relative",
-        zIndex: 1,
-        overflow: "hidden",
-        display: "flex",
-        flexDirection: "column",
-      }}
-    >
-      {/* Shader gradient background */}
-      <div
-        key={gradientKey}
-        style={{
-          position: "absolute",
-          top: -80,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          zIndex: 0,
-          opacity: 0.85,
-          pointerEvents: "none",
-        }}
-      >
-        <GradientBackground />
+    <section className="hero-banner" style={{ background: "#F5F0EB" }}>
+      <div className="hero-banner-inner">
+
+        {/* Animated cursor */}
+        <AnimatePresence>
+          {phase >= 1 && phase <= 4 && (
+            <motion.img
+              src="/cursor.svg"
+              alt=""
+              aria-hidden="true"
+              className="hero-anim-cursor"
+              initial={{ left: "105%", top: "10%", opacity: 0 }}
+              animate={
+                phase === 1
+                  ? {
+                      left: "50%",
+                      top: "50%",
+                      opacity: 1,
+                      y: [0, 30, 0],
+                    }
+                  : phase === 2
+                  ? { left: "70%", top: "38%", opacity: 1, y: 0 }
+                  : phase === 3
+                  ? { left: "calc(50% - 60px)", top: "calc(50% - 110px)", opacity: 1, y: 0 }
+                  : { left: "calc(50% - 60px)", top: "calc(50% - 110px)", opacity: 1, y: 0, scale: 0.88 }
+              }
+              exit={{ left: "-10%", top: "30%", opacity: 0 }}
+              transition={
+                phase === 1
+                  ? { duration: 0.8, ease: [0.2, 0.8, 0.2, 1] }
+                  : { duration: 0.6, ease: [0.32, 0.72, 0, 1] }
+              }
+            />
+          )}
+        </AnimatePresence>
+
+        {/* ⌥V shortcut flash — centered */}
+        <AnimatePresence>
+          {phase === 2 && (
+            <motion.div
+              className="hero-shortcut-flash"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.3 }}
+            >
+              <motion.div
+                className="hero-shortcut-flash-inner"
+                initial={{ scale: 0.8 }}
+                animate={{ scale: 1 }}
+                exit={{ scale: 0.9 }}
+                transition={{ duration: 0.3 }}
+              >
+                <span className="hero-keycap">⌥</span>
+                <span className="hero-keycap">V</span>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* ClippyBar picker — centered */}
+        <AnimatePresence>
+          {phase === 3 && (
+            <motion.div
+              className="hero-picker-wrapper"
+              initial={{ opacity: 0, scale: 0.92, y: 16 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: -8 }}
+              transition={{ duration: 0.3, ease: [0.32, 0.72, 0, 1] }}
+            >
+              <ClippyPickerMock onSelect={handlePickerSelect} />
+            </motion.div>
+          )}
+        </AnimatePresence>
+
       </div>
 
-      {/* Content overlay */}
-      <div style={{ position: "relative", zIndex: 1, flex: 1, display: "flex", flexDirection: "column" }}>
-        {/* Top section: text + app mockup */}
-        <div className="mx-auto max-w-[1200px] px-4 sm:px-6 lg:px-8 w-full" style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", paddingTop: 80 }}>
-          {/* Bold headline overlaid */}
-          <div className="hero-text-enter" style={{ marginBottom: 40 }}>
-            <h1 className="hero-headline">
-              EVERYTHING{" "}
-              <span style={{ color: "rgba(175,130,255,0.9)", fontStyle: "italic" }}>YOU COPY,</span>
-              <br />
-              INSTANTLY
-              <br />
-              RECALLED
-            </h1>
-          </div>
+      {/* Text content */}
+      <div className="mx-auto max-w-[1400px] px-6 sm:px-8 lg:px-12">
+        {/* The headline — pastes in after picker selection */}
+        <div className="relative">
+          <h1 className="hero-display">
+            {phase >= 4 ? (
+              <>
+                <span className="block">
+                  {word1.map((char, i) => (
+                    <motion.span
+                      key={`a${i}`}
+                      initial={{ opacity: 0, y: 30, filter: "blur(10px)" }}
+                      animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                      transition={{
+                        duration: 0.45,
+                        delay: i * 0.05,
+                        ease: [0.32, 0.72, 0, 1],
+                      }}
+                      className="inline-block"
+                    >
+                      {char}
+                    </motion.span>
+                  ))}
+                </span>
+                <span className="block">
+                  {word2.map((char, i) => (
+                    <motion.span
+                      key={`b${i}`}
+                      initial={{ opacity: 0, y: 30, filter: "blur(10px)" }}
+                      animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                      transition={{
+                        duration: 0.45,
+                        delay: (i + word1.length) * 0.05,
+                        ease: [0.32, 0.72, 0, 1],
+                      }}
+                      className="inline-block"
+                    >
+                      {char}
+                    </motion.span>
+                  ))}
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="block invisible">Clippy</span>
+                <span className="block invisible">Bar</span>
+              </>
+            )}
+          </h1>
 
-          {/* App screenshot mockup */}
-          <div className="hero-demo-enter">
-            <HeroAppMockup />
-          </div>
+          {phase === 4 && (
+            <motion.span
+              className="hero-text-cursor"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: [0, 1, 0] }}
+              transition={{ duration: 0.5, repeat: 2, ease: "linear" }}
+            />
+          )}
         </div>
 
-        {/* Bottom feature pills bar */}
-        <div className="hero-bottom-bar">
-          <div className="mx-auto max-w-[1200px] px-4 sm:px-6 lg:px-8 w-full">
-            <div className="hero-pills-row">
-              <div className="hero-pill">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.7)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                </svg>
-                <div>
-                  <span className="hero-pill-label">History</span>
-                  <span className="hero-pill-value">Unlimited</span>
-                </div>
-              </div>
-              <div className="hero-pill">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.7)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-                  <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-                </svg>
-                <div>
-                  <span className="hero-pill-label">Shortcut</span>
-                  <span className="hero-pill-value">&#x2325;V</span>
-                </div>
-              </div>
-              <div className="hero-pill">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.7)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                </svg>
-                <div>
-                  <span className="hero-pill-label">Privacy</span>
-                  <span className="hero-pill-value">100% Local</span>
-                </div>
-              </div>
-              <div className="hero-pill">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.7)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-                </svg>
-                <div>
-                  <span className="hero-pill-label">Price</span>
-                  <span className="hero-pill-value">Free</span>
-                </div>
-              </div>
-              <a
-                href={APP_STORE_URL}
-                className="hero-pill-cta"
-              >
-                Download
-              </a>
-            </div>
+        {/* Rest of hero content */}
+        <motion.div
+          initial={{ opacity: 0, y: 24 }}
+          animate={phase >= 6 ? { opacity: 1, y: 0 } : {}}
+          transition={{ duration: 0.8, ease: [0.32, 0.72, 0, 1] }}
+          className="mt-10 md:mt-14 flex flex-col md:flex-row md:items-end md:justify-between gap-8"
+        >
+          <p className="text-[#6B7280] text-base md:text-lg leading-relaxed max-w-md">
+            A privacy-first clipboard manager for macOS. Save your full history,
+            search instantly, and paste with a single shortcut.
+          </p>
+          <a href="#features" className="btn-pill-outline shrink-0">
+            Explore ClippyBar
+            <ArrowRight />
+          </a>
+        </motion.div>
+
+        {/* Dot indicators */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={phase >= 6 ? { opacity: 1 } : {}}
+          transition={{ duration: 0.6, delay: 0.2 }}
+          className="flex items-center gap-2 mt-10"
+        >
+          <span className="w-2 h-2 rounded-full bg-[#1A1A1A]" />
+          <span className="w-2 h-2 rounded-full bg-[#D1D5DB]" />
+          <span className="w-2 h-2 rounded-full bg-[#D1D5DB]" />
+        </motion.div>
+
+        {/* Main demo video */}
+        <motion.div
+          initial={{ opacity: 0, y: 32 }}
+          animate={phase >= 6 ? { opacity: 1, y: 0 } : {}}
+          transition={{ duration: 0.8, delay: 0.3, ease: [0.32, 0.72, 0, 1] }}
+          className="mt-14 md:mt-20"
+        >
+          <div className="media-card max-w-5xl mx-auto">
+            <video autoPlay muted loop playsInline>
+              <source src="/demos/clippy-demo.mp4" type="video/mp4" />
+            </video>
           </div>
+        </motion.div>
+      </div>
+    </section>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  About Section                                                      */
+/* ------------------------------------------------------------------ */
+
+function AboutSection() {
+  const ref = useReveal();
+
+  return (
+    <section ref={ref} className="section-reveal py-24 md:py-36 bg-white">
+      <div className="mx-auto max-w-[1400px] px-6 sm:px-8 lg:px-12">
+        <div className="flex flex-col md:flex-row gap-12 md:gap-24 items-start">
+          <h2 className="text-3xl md:text-4xl font-light text-[#1A1A1A] tracking-tight shrink-0 leading-tight">
+            About Us
+          </h2>
+          <p className="about-editorial-text">
+            We believe that a great clipboard manager is <strong>more than just storage
+            — it&#39;s about creating workflows where productivity happens.</strong>{" "}
+            ClippyBar is thoughtfully crafted to combine instant recall, privacy-first
+            design, everyday functionality, and lasting simplicity.
+          </p>
         </div>
       </div>
     </section>
@@ -658,291 +678,147 @@ function Act1Hook() {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Tab Illustrations                                                  */
+/*  Feature Cards Row                                                  */
 /* ------------------------------------------------------------------ */
 
-function TabIllustration({ type }: { type: string }) {
-  const miniWindowStyle: React.CSSProperties = {
-    borderRadius: 8,
-    overflow: "hidden",
-    border: "0.5px solid rgba(0,0,0,0.06)",
-    background: "rgba(255,255,255,0.8)",
-    boxShadow: "0 4px 16px rgba(0,0,0,0.06)",
-  };
-  const miniBarStyle: React.CSSProperties = {
-    display: "flex",
-    alignItems: "center",
-    gap: 4,
-    padding: "6px 10px",
-    borderBottom: "0.5px solid rgba(0,0,0,0.06)",
-  };
-  const miniDot: React.CSSProperties = {
-    width: 6,
-    height: 6,
-    borderRadius: "50%",
-  };
-  const rowStyle: React.CSSProperties = {
-    display: "flex",
-    alignItems: "center",
-    padding: "6px 10px",
-    gap: 8,
-    fontSize: 11,
-    fontFamily: "SF Mono, Menlo, monospace",
-  };
+function FeatureCardsRow() {
+  const ref = useReveal();
+  const [activeCard, setActiveCard] = useState(0);
 
-  if (type === "history") {
-    return (
-      <div style={miniWindowStyle}>
-        <div style={miniBarStyle}>
-          <div style={{ ...miniDot, background: "#FF5F57" }} />
-          <div style={{ ...miniDot, background: "#FFBD2E" }} />
-          <div style={{ ...miniDot, background: "#28C840" }} />
-          <span style={{ flex: 1, textAlign: "center", fontSize: 10, color: "#86868B" }}>ClippyBar</span>
-        </div>
-        {["const api = fetch(...)", "https://github.com/...", "Meeting notes: Q4...", "ssh deploy@prod...", "hello@clippy.bar"].map(
-          (t, i) => (
-            <div key={i} style={{ ...rowStyle, background: i === 0 ? "rgba(0,122,255,0.06)" : "transparent" }}>
-              <span style={{ color: i === 0 ? "#007AFF" : "#1D1D1F", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t}</span>
-              <span style={{ fontSize: 9, color: "#86868B" }}>{["5s", "2m", "8m", "15m", "1h"][i]}</span>
-            </div>
-          )
-        )}
-      </div>
-    );
-  }
-
-  if (type === "search") {
-    return (
-      <div style={miniWindowStyle}>
-        <div style={miniBarStyle}>
-          <div style={{ ...miniDot, background: "#FF5F57" }} />
-          <div style={{ ...miniDot, background: "#FFBD2E" }} />
-          <div style={{ ...miniDot, background: "#28C840" }} />
-        </div>
-        <div style={{ padding: "6px 10px" }}>
-          <div style={{ background: "rgba(0,0,0,0.04)", borderRadius: 6, padding: "4px 8px", fontSize: 11, color: "#1D1D1F", fontFamily: "SF Mono, Menlo, monospace" }}>
-            github
-          </div>
-        </div>
-        <div style={{ ...rowStyle, background: "rgba(0,122,255,0.06)" }}>
-          <span style={{ color: "#007AFF", flex: 1 }}>https://<strong>github</strong>.com/clipbar</span>
-          <span className="pill-badge pill-url" style={{ fontSize: 9 }}>URL</span>
-        </div>
-        <div style={{ ...rowStyle, opacity: 0.4 }}>
-          <span style={{ color: "#86868B", flex: 1 }}>No more results</span>
-        </div>
-      </div>
-    );
-  }
-
-  if (type === "shortcuts") {
-    return (
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16, padding: 20 }}>
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <span className="keycap">&#x2325;</span>
-          <span style={{ color: "#86868B", fontSize: 16 }}>+</span>
-          <span className="keycap">V</span>
-        </div>
-        <span style={{ fontSize: 12, color: "#86868B" }}>Customize in Settings</span>
-      </div>
-    );
-  }
-
-  if (type === "pinning") {
-    return (
-      <div style={miniWindowStyle}>
-        <div style={miniBarStyle}>
-          <div style={{ ...miniDot, background: "#FF5F57" }} />
-          <div style={{ ...miniDot, background: "#FFBD2E" }} />
-          <div style={{ ...miniDot, background: "#28C840" }} />
-        </div>
-        <div style={{ padding: "4px 10px 2px", fontSize: 9, color: "#86868B", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600 }}>Pinned</div>
-        {["ssh deploy@prod...", "hello@clippy.bar"].map((t, i) => (
-          <div key={i} style={{ ...rowStyle, background: "rgba(255,149,0,0.04)" }}>
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="#FF9500" stroke="#FF9500" strokeWidth="2"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16h14v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 2-2H6a2 2 0 0 0 2 2 1 1 0 0 1 1 1z"/></svg>
-            <span style={{ color: "#1D1D1F", flex: 1 }}>{t}</span>
-          </div>
-        ))}
-        <div style={{ padding: "4px 10px 2px", fontSize: 9, color: "#86868B", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600, borderTop: "0.5px solid rgba(0,0,0,0.06)", marginTop: 2, paddingTop: 6 }}>Recent</div>
-        <div style={rowStyle}>
-          <span style={{ color: "#1D1D1F", flex: 1 }}>const api = fetch(...)</span>
-        </div>
-      </div>
-    );
-  }
-
-  if (type === "exclusions") {
-    return (
-      <div style={miniWindowStyle}>
-        <div style={miniBarStyle}>
-          <div style={{ ...miniDot, background: "#FF5F57" }} />
-          <div style={{ ...miniDot, background: "#FFBD2E" }} />
-          <div style={{ ...miniDot, background: "#28C840" }} />
-          <span style={{ flex: 1, textAlign: "center", fontSize: 10, color: "#86868B" }}>Excluded Apps</span>
-        </div>
-        {["1Password", "Chase Banking", "Signal"].map((app, i) => (
-          <div key={i} style={{ ...rowStyle, justifyContent: "space-between" }}>
-            <span style={{ color: "#1D1D1F", fontFamily: "inherit" }}>{app}</span>
-            <div style={{ width: 28, height: 16, borderRadius: 8, background: "#34C759", position: "relative" }}>
-              <div style={{ position: "absolute", right: 2, top: 2, width: 12, height: 12, borderRadius: "50%", background: "white", boxShadow: "0 1px 2px rgba(0,0,0,0.1)" }} />
-            </div>
-          </div>
-        ))}
-      </div>
-    );
-  }
-
-  if (type === "autopaste") {
-    return (
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, padding: 16 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ padding: "6px 12px", background: "rgba(0,122,255,0.06)", borderRadius: 6, fontSize: 12, color: "#007AFF", fontFamily: "SF Mono, Menlo, monospace" }}>
-            Select item
-          </div>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#86868B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M5 12h14" />
-            <path d="m12 5 7 7-7 7" />
-          </svg>
-          <div style={{ padding: "6px 12px", background: "rgba(52,199,89,0.06)", borderRadius: 6, fontSize: 12, color: "#34C759", fontFamily: "SF Mono, Menlo, monospace" }}>
-            Auto-pasted
-          </div>
-        </div>
-        <span style={{ fontSize: 11, color: "#86868B" }}>One click. Instantly pasted.</span>
-      </div>
-    );
-  }
-
-  return null;
-}
-
-/* ------------------------------------------------------------------ */
-/*  ACT 2: THE PROOF — Features as tab panel                          */
-/* ------------------------------------------------------------------ */
-
-function Act2Proof() {
-  const ref = useActReveal();
-  const [activeTab, setActiveTab] = useState(0);
-  const tabBarRef = useRef<HTMLDivElement>(null);
-  const [indicatorStyle, setIndicatorStyle] = useState<React.CSSProperties>({});
-
-  // Update indicator position
-  useEffect(() => {
-    const tabBar = tabBarRef.current;
-    if (!tabBar) return;
-    const buttons = tabBar.querySelectorAll<HTMLButtonElement>(".tab-item");
-    const activeBtn = buttons[activeTab];
-    if (activeBtn) {
-      setIndicatorStyle({
-        left: activeBtn.offsetLeft,
-        width: activeBtn.offsetWidth,
-      });
-    }
-  }, [activeTab]);
-
-  const currentTab = tabData[activeTab];
+  const cards = [
+    {
+      num: "01",
+      icon: <SearchIcon />,
+      title: "Instant\nSearch",
+      description:
+        "Filter your entire clipboard history in milliseconds to find exactly what you need.",
+      media: "/demos/clippy-demo.mp4",
+      mediaType: "video" as const,
+    },
+    {
+      num: "02",
+      icon: <ZapIcon />,
+      title: "Smart\nFilters",
+      description:
+        "Narrow down by type — text, links, files, or images. Find what matters fast.",
+      media: "/demos/filters-gif.gif",
+      mediaType: "image" as const,
+    },
+    {
+      num: "03",
+      icon: <ShieldIcon />,
+      title: "Pin\nFavorites",
+      description:
+        "Keep important snippets pinned to the top. Always there when you need them.",
+      media: "/demos/pin-item.gif",
+      mediaType: "image" as const,
+    },
+  ];
 
   return (
-    <section
-      id="features"
-      ref={ref}
-      className="act-reveal"
-      style={{
-        position: "relative",
-        zIndex: 2,
-        background: "#F5F5F7",
-        paddingBottom: 100,
-      }}
-    >
-      {/* Tab bar — straddles the hero/features boundary */}
-      <div
-        className="tab-bar-wrapper"
-        style={{
-          display: "flex",
-          justifyContent: "center",
-          position: "relative",
-          zIndex: 10,
-          paddingTop: 8,
-        }}
-      >
-        <div
-          ref={tabBarRef}
-          className="glass-card tab-bar"
-          style={{
-            position: "relative",
-            flexWrap: "wrap",
-            justifyContent: "center",
-            padding: "10px 16px",
-            background: "#ffffff",
-            boxShadow: "0 12px 48px rgba(0, 0, 0, 0.18), 0 0 0 0.5px rgba(0, 0, 0, 0.08)",
-          }}
-        >
-          {/* Sliding indicator */}
-          <div className="tab-indicator" style={indicatorStyle} />
-          {tabData.map((tab, i) => (
-            <button
-              key={tab.id}
-              className={`tab-item ${activeTab === i ? "active" : ""}`}
-              onClick={() => setActiveTab(i)}
+    <section id="features" ref={ref} className="section-reveal py-24 md:py-36" style={{ background: "#F5F0EB" }}>
+      <div className="mx-auto max-w-[1400px] px-6 sm:px-8 lg:px-12">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-5">
+          {cards.map((card, i) => (
+            <div
+              key={i}
+              className={`showcase-card ${i === activeCard ? "showcase-card-active" : ""}`}
+              onMouseEnter={() => setActiveCard(i)}
             >
-              {tab.label}
-            </button>
+              {/* Background media */}
+              <div className="showcase-card-bg">
+                {card.mediaType === "video" ? (
+                  <video autoPlay muted loop playsInline>
+                    <source src={card.media} type="video/mp4" />
+                  </video>
+                ) : (
+                  <img src={card.media} alt={card.title} loading="lazy" />
+                )}
+              </div>
+
+              {/* Overlay content */}
+              <div className="showcase-card-content">
+                <div className="flex items-start justify-between mb-auto">
+                  <span className="text-xs font-medium opacity-60">{card.num}</span>
+                  <div className="showcase-card-icon">{card.icon}</div>
+                </div>
+
+                <div>
+                  <h3 className="text-xl md:text-2xl font-semibold leading-tight mb-3 whitespace-pre-line">
+                    {card.title}
+                  </h3>
+                  <p className="text-sm opacity-70 leading-relaxed">
+                    {card.description}
+                  </p>
+                </div>
+
+                <div className="mt-4 flex items-center gap-3">
+                  <button
+                    className="showcase-card-arrow"
+                    onClick={() => setActiveCard(i === 0 ? cards.length - 1 : i - 1)}
+                    aria-label="Previous"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
+                  </button>
+                  <button
+                    className="showcase-card-arrow"
+                    onClick={() => setActiveCard(i === cards.length - 1 ? 0 : i + 1)}
+                    aria-label="Next"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                  </button>
+                </div>
+              </div>
+            </div>
           ))}
         </div>
       </div>
+    </section>
+  );
+}
 
-      <div className="mx-auto max-w-[1200px] px-4 sm:px-6 lg:px-8" style={{ position: "relative", zIndex: 1 }}>
+/* ------------------------------------------------------------------ */
+/*  Trust / Stats Section                                              */
+/* ------------------------------------------------------------------ */
 
-        {/* Content panel */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr",
-            gap: 48,
-            alignItems: "center",
-          }}
-          className="lg:!grid-cols-2"
-        >
-          {/* Left: text */}
-          <div key={currentTab.id} className="tab-content active">
-            <h3
-              style={{
-                fontSize: "clamp(20px, 4.5vw, 24px)",
-                fontWeight: 600,
-                color: "#1D1D1F",
-                marginBottom: 12,
-              }}
-            >
-              {currentTab.title}
-            </h3>
-            <p
-              style={{
-                fontSize: "clamp(15px, 3.5vw, 17px)",
-                color: "#86868B",
-                lineHeight: 1.6,
-              }}
-            >
-              {currentTab.description}
-            </p>
-            {currentTab.shortcut && (
-              <div style={{ marginTop: 20, display: "flex", gap: 8, alignItems: "center" }}>
-                <span className="keycap">&#x2325;</span>
-                <span style={{ color: "#86868B", fontSize: 14 }}>+</span>
-                <span className="keycap">V</span>
-              </div>
-            )}
+function TrustSection() {
+  const ref = useReveal();
+
+  const stats = [
+    { value: "\u221E", label: "Unlimited History" },
+    { value: "0", label: "Data Collected" },
+    { value: "100%", label: "Local Storage" },
+  ];
+
+  return (
+    <section ref={ref} className="section-reveal py-24 md:py-36 bg-white">
+      <div className="mx-auto max-w-[1400px] px-6 sm:px-8 lg:px-12">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
+          {/* Left: large media */}
+          <div className="media-card">
+            <video autoPlay muted loop playsInline>
+              <source src="/demos/clippy-demo.mp4" type="video/mp4" />
+            </video>
           </div>
 
-          {/* Right: illustration */}
-          <div
-            key={`illus-${currentTab.id}`}
-            className="tab-content active"
-            style={{
-              display: "flex",
-              justifyContent: "center",
-            }}
-          >
-            <div style={{ maxWidth: 320, width: "100%" }}>
-              <TabIllustration type={currentTab.illustration} />
+          {/* Right: heading + stats */}
+          <div>
+            <h2 className="section-heading-editorial mb-6">
+              Growing through <strong>craftsmanship</strong>,<br />
+              trusted by thousands
+            </h2>
+            <p className="text-[#6B7280] text-base leading-relaxed max-w-md mb-12">
+              Built with care for macOS users who value speed, simplicity, and
+              privacy above everything else. No subscriptions, no compromises.
+            </p>
+
+            <div className="flex gap-10 md:gap-14">
+              {stats.map((stat, i) => (
+                <div key={i}>
+                  <div className="stat-value">{stat.value}</div>
+                  <div className="stat-label">{stat.label}</div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -952,7 +828,119 @@ function Act2Proof() {
 }
 
 /* ------------------------------------------------------------------ */
-/*  FAQ Item                                                           */
+/*  Features Detail / Bento Grid                                       */
+/* ------------------------------------------------------------------ */
+
+function FeaturesDetail() {
+  const ref = useReveal();
+
+  return (
+    <section ref={ref} className="section-reveal py-24 md:py-36" style={{ background: "#F5F0EB" }}>
+      <div className="mx-auto max-w-[1400px] px-6 sm:px-8 lg:px-12">
+        <div className="mb-14 md:mb-20">
+          <div className="about-divider" />
+          <h2 className="text-2xl md:text-3xl font-light text-[#1A1A1A] tracking-tight">
+            Our <em className="font-semibold not-italic">Features</em>
+          </h2>
+        </div>
+
+        <div className="bento-grid">
+          {/* Large card — demo video */}
+          <div className="bento-large">
+            <div className="media-card relative">
+              <video autoPlay muted loop playsInline>
+                <source src="/demos/clippy-demo.mp4" type="video/mp4" />
+              </video>
+              <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/50 to-transparent">
+                <span className="text-white text-sm font-semibold tracking-wide uppercase">
+                  Smart History
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Smaller cards */}
+          <div>
+            <div className="media-card relative">
+              <img
+                src="/demos/filters-gif.gif"
+                alt="Filter by type"
+                loading="lazy"
+              />
+              <div className="absolute bottom-0 left-0 right-0 p-5 bg-gradient-to-t from-black/50 to-transparent">
+                <span className="text-white text-sm font-semibold tracking-wide uppercase">
+                  Type Filters
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div className="media-card relative">
+              <img
+                src="/demos/pin-item.gif"
+                alt="Pin important items"
+                loading="lazy"
+              />
+              <div className="absolute bottom-0 left-0 right-0 p-5 bg-gradient-to-t from-black/50 to-transparent">
+                <span className="text-white text-sm font-semibold tracking-wide uppercase">
+                  Pin Items
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Privacy Section                                                    */
+/* ------------------------------------------------------------------ */
+
+function PrivacySection() {
+  const ref = useReveal();
+
+  return (
+    <section id="privacy" ref={ref} className="section-reveal py-24 md:py-36" style={{ background: "#1A1A1A" }}>
+      <div className="mx-auto max-w-[1400px] px-6 sm:px-8 lg:px-12">
+        <div className="max-w-2xl mx-auto text-center">
+          <h2
+            className="text-white font-bold mb-8"
+            style={{ fontSize: "clamp(1.75rem, 4vw, 2.5rem)" }}
+          >
+            Your clipboard never leaves your Mac.
+          </h2>
+          <p className="text-[#9CA3AF] text-lg leading-relaxed mb-14">
+            ClippyBar is built on a simple principle: your data is yours. No
+            cloud, no servers, no analytics. Just a fast, local clipboard
+            manager that respects your privacy.
+          </p>
+
+          <div className="flex flex-col gap-5 items-start max-w-md mx-auto mb-14">
+            {privacyPoints.map((point, i) => (
+              <div key={i} className="flex items-center gap-3">
+                <CheckIcon />
+                <span className="text-white text-base">{point}</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#22C55E]/10 border border-[#22C55E]/20">
+            <CheckIcon />
+            <span className="text-[#22C55E] font-semibold text-sm">
+              100% Local
+            </span>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  FAQ Section                                                        */
 /* ------------------------------------------------------------------ */
 
 function FAQItem({ faq }: { faq: { question: string; answer: string } }) {
@@ -961,20 +949,19 @@ function FAQItem({ faq }: { faq: { question: string; answer: string } }) {
   return (
     <div className={`faq-row ${open ? "faq-open" : ""}`}>
       <button
-        className="flex items-center justify-between gap-4 w-full text-left"
-        style={{ padding: "20px 0" }}
+        className="flex items-center justify-between gap-4 w-full text-left py-5"
         onClick={() => setOpen(!open)}
         aria-expanded={open}
       >
-        <span style={{ fontSize: "clamp(15px, 3.5vw, 17px)", fontWeight: 600, color: "#1D1D1F" }}>
+        <span className="text-base md:text-lg font-semibold text-[#1A1A1A]">
           {faq.question}
         </span>
-        <PlusIcon className="faq-icon flex-shrink-0" />
+        <PlusIcon className="faq-icon" />
       </button>
       <div className={`faq-answer ${open ? "open" : ""}`}>
         <div className="faq-answer-inner">
-          <div style={{ paddingBottom: 20 }}>
-            <p style={{ fontSize: 15, color: "#86868B", lineHeight: 1.6 }}>
+          <div className="pb-5">
+            <p className="text-[#6B7280] text-base leading-relaxed">
               {faq.answer}
             </p>
           </div>
@@ -984,121 +971,57 @@ function FAQItem({ faq }: { faq: { question: string; answer: string } }) {
   );
 }
 
-/* ------------------------------------------------------------------ */
-/*  ACT 3: THE CLOSE — Privacy + FAQ + CTA                            */
-/* ------------------------------------------------------------------ */
-
-function Act3Close() {
-  const ref = useActReveal();
+function FAQSection() {
+  const ref = useReveal();
 
   return (
-    <section
-      id="privacy"
-      ref={ref}
-      className="act-reveal act3-section"
-      style={{
-        background: "#F0F0F2",
-        position: "relative",
-        overflow: "hidden",
-      }}
-    >
-      {/* Dot grid background */}
-      <div
-        aria-hidden="true"
-        style={{
-          position: "absolute",
-          inset: 0,
-          backgroundImage: "radial-gradient(circle, rgba(0,0,0,0.18) 0.8px, transparent 0.8px)",
-          backgroundSize: "22px 22px",
-          pointerEvents: "none",
-          maskImage: "radial-gradient(ellipse at center, black 40%, transparent 80%)",
-          WebkitMaskImage: "radial-gradient(ellipse at center, black 40%, transparent 80%)",
-        }}
-      />
-      <div className="mx-auto max-w-[1200px] px-4 sm:px-6 lg:px-8" style={{ position: "relative" }}>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr",
-            gap: 64,
-          }}
-          className="lg:!grid-cols-2"
-        >
-          {/* LEFT COLUMN (sticky) */}
-          <div
-            className="lg:sticky"
-            style={{ top: 100, alignSelf: "start" }}
-          >
-            {/* Headline */}
-            <h2
-              className="privacy-heading"
-              style={{
-                fontWeight: 600,
-                color: "#1D1D1F",
-                lineHeight: 1.15,
-                marginBottom: 32,
-              }}
-            >
-              Your clipboard never leaves your Mac.
-            </h2>
-
-            {/* Privacy points */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 16, marginBottom: 40 }}>
-              {privacyPoints.map((point, i) => (
-                <div
-                  key={i}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 12,
-                  }}
-                >
-                  <CheckmarkIcon />
-                  <span style={{ fontSize: 16, color: "#1D1D1F" }}>
-                    {point}
-                  </span>
-                </div>
-              ))}
-            </div>
-
-            {/* Glass CTA card */}
-            <div
-              className="cta-glass-card cta-card-inner"
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
-                <ClippyBarLogo size={48} fill="#1D1D1F" />
-                <div>
-                  <p style={{ fontSize: "clamp(16px, 4vw, 20px)", fontWeight: 600, color: "#1D1D1F", margin: 0 }}>
-                    Ready to paste smarter?
-                  </p>
-                </div>
-              </div>
-              {/* TODO: Replace href with actual App Store URL once ID is available */}
-              <a
-                href={APP_STORE_URL}
-                className="btn-primary"
-                style={{
-                  width: "100%",
-                  textAlign: "center",
-                  marginBottom: 12,
-                  gap: 8,
-                }}
-              >
-                Download on the Mac App Store
-              </a>
-              <p style={{ fontSize: 12, color: "#86868B", textAlign: "center", margin: 0 }}>
-                macOS 13 (Ventura) or later &middot; Apple Silicon &amp; Intel
-              </p>
-            </div>
-          </div>
-
-          {/* RIGHT COLUMN (scrollable FAQ) */}
-          <div id="faq">
-            {faqs.map((faq, i) => (
-              <FAQItem key={i} faq={faq} />
-            ))}
-          </div>
+    <section id="faq" ref={ref} className="section-reveal py-24 md:py-36" style={{ background: "#F5F0EB" }}>
+      <div className="mx-auto max-w-[720px] px-6 sm:px-8 lg:px-12">
+        <div className="mb-14">
+          <div className="about-divider" />
+          <h2 className="text-2xl md:text-3xl font-light text-[#1A1A1A] tracking-tight">
+            Frequently Asked <em className="font-semibold not-italic">Questions</em>
+          </h2>
         </div>
+        <div>
+          {faqs.map((faq, i) => (
+            <FAQItem key={i} faq={faq} />
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  CTA Section                                                        */
+/* ------------------------------------------------------------------ */
+
+function CTASection() {
+  const ref = useReveal();
+
+  return (
+    <section ref={ref} className="section-reveal py-24 md:py-36 bg-white">
+      <div className="mx-auto max-w-[1400px] px-6 sm:px-8 lg:px-12 text-center">
+        <h2
+          className="font-bold text-[#1A1A1A] mb-4"
+          style={{ fontSize: "clamp(1.75rem, 4vw, 2.5rem)" }}
+        >
+          Ready to paste smarter?
+        </h2>
+        <p className="text-[#6B7280] text-base mb-10 max-w-md mx-auto">
+          Download ClippyBar for free and experience a clipboard that works the
+          way you think.
+        </p>
+        <div className="mb-6">
+          <a href={APP_STORE_URL} className="btn-primary gap-2">
+            <AppleIcon />
+            Download Free
+          </a>
+        </div>
+        <p className="text-xs text-[#9CA3AF] tracking-wide uppercase">
+          macOS 13+ &middot; Apple Silicon &amp; Intel &middot; Free forever
+        </p>
       </div>
     </section>
   );
@@ -1112,39 +1035,24 @@ function PrivacyPolicy() {
   return (
     <section
       id="privacy-policy"
-      style={{
-        background: "#ffffff",
-        padding: "80px 0",
-        borderTop: "1px solid rgba(0,0,0,0.06)",
-      }}
+      className="py-20"
+      style={{ background: "#F5F0EB", borderTop: "1px solid rgba(0,0,0,0.06)" }}
     >
-      <div className="mx-auto max-w-[1200px] px-4 sm:px-6 lg:px-8" style={{ maxWidth: 720 }}>
+      <div className="mx-auto max-w-[720px] px-6 sm:px-8 lg:px-12">
         <h2
-          style={{
-            fontSize: "clamp(24px, 5vw, 36px)",
-            fontWeight: 600,
-            color: "#1D1D1F",
-            marginBottom: 32,
-          }}
+          className="font-bold text-[#1A1A1A] mb-8"
+          style={{ fontSize: "clamp(1.5rem, 4vw, 2rem)" }}
         >
           Privacy Policy
         </h2>
-        <p
-          style={{
-            fontSize: 16,
-            color: "#1D1D1F",
-            lineHeight: 1.7,
-            marginBottom: 24,
-          }}
-        >
-          ClippyBar does not collect, store, or transmit any personal data. All clipboard
-          data is stored locally on your Mac in ~/Library/Application Support/ClippyBar/.
-          The app makes zero network requests. No analytics, no telemetry, no tracking.
-          Optional memory-only mode ensures nothing is written to disk.
+        <p className="text-[#1A1A1A] text-base leading-7 mb-6">
+          ClippyBar does not collect, store, or transmit any personal data. All
+          clipboard data is stored locally on your Mac in ~/Library/Application
+          Support/ClippyBar/. The app makes zero network requests. No analytics,
+          no telemetry, no tracking. Optional memory-only mode ensures nothing
+          is written to disk.
         </p>
-        <p style={{ fontSize: 13, color: "#86868B" }}>
-          Last updated: March 2026
-        </p>
+        <p className="text-sm text-[#9CA3AF]">Last updated: March 2026</p>
       </div>
     </section>
   );
@@ -1156,39 +1064,43 @@ function PrivacyPolicy() {
 
 function Footer() {
   return (
-    <footer
-      style={{
-        borderTop: "1px solid rgba(0,0,0,0.06)",
-        padding: "24px 0",
-        background: "#F0F0F2",
-      }}
-    >
-      <div className="mx-auto max-w-[1200px] px-4 sm:px-6 lg:px-8">
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            flexWrap: "wrap",
-            gap: 8,
-          }}
-        >
-          <span style={{ fontSize: 13, color: "#86868B" }}>
-            ClippyBar — Paste smarter, not harder.
-          </span>
-          <span style={{ fontSize: 13, color: "#86868B" }}>
-            macOS &middot; 2026 &middot; Free
-          </span>
-        </div>
-        <div style={{ textAlign: "center", marginTop: 12 }}>
-          <span style={{ fontSize: 13, color: "#86868B" }}>
-            Made with <span style={{ color: "#FF2D55" }}>&hearts;</span> by{" "}
+    <footer className="py-10" style={{ background: "#1A1A1A" }}>
+      <div className="mx-auto max-w-[1400px] px-6 sm:px-8 lg:px-12">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="flex items-center gap-2">
+            <ClippyBarLogo size={22} fill="#FFFFFF" />
+            <span className="text-sm font-semibold text-white tracking-tight">
+              ClippyBar
+            </span>
+          </div>
+
+          <div className="flex items-center gap-8">
+            <a href="#features" className="text-xs text-[#9CA3AF] uppercase tracking-widest hover:text-white transition-colors no-underline">
+              Features
+            </a>
+            <a href="#privacy" className="text-xs text-[#9CA3AF] uppercase tracking-widest hover:text-white transition-colors no-underline">
+              Privacy
+            </a>
+            <a href="#faq" className="text-xs text-[#9CA3AF] uppercase tracking-widest hover:text-white transition-colors no-underline">
+              FAQ
+            </a>
             <a
-              href="https://github.com/panayar/Clippy"
+              href={GITHUB_URL}
               target="_blank"
               rel="noopener noreferrer"
-              style={{ color: "#86868B", textDecoration: "none" }}
-              className="link-hover"
+              className="text-xs text-[#9CA3AF] uppercase tracking-widest hover:text-white transition-colors no-underline"
+            >
+              GitHub
+            </a>
+          </div>
+
+          <span className="text-xs text-[#6B7280]">
+            Made with <span className="text-red-400">&hearts;</span> by{" "}
+            <a
+              href={GITHUB_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[#9CA3AF] no-underline link-hover"
             >
               @panayar
             </a>
@@ -1206,16 +1118,16 @@ function Footer() {
 export default function Home() {
   return (
     <>
-      {/* Animated mesh gradient background */}
-      <div className="mesh-gradient" aria-hidden="true">
-        <div className="mesh-blob" />
-      </div>
-
       <Navigation />
       <main>
-        <Act1Hook />
-        <Act2Proof />
-        <Act3Close />
+        <HeroSection />
+        <AboutSection />
+        <FeatureCardsRow />
+        <TrustSection />
+        <FeaturesDetail />
+        <PrivacySection />
+        <FAQSection />
+        <CTASection />
         <PrivacyPolicy />
       </main>
       <Footer />

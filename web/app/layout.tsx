@@ -36,8 +36,8 @@ export default function RootLayout({
         style={{
           fontFamily:
             '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", system-ui, sans-serif',
-          background: "#F5F5F7",
-          color: "#1D1D1F",
+          background: "#FFFFFF",
+          color: "#1A1A1A",
         }}
       >
         {children}
