@@ -9,32 +9,24 @@ enum Permissions {
         AXIsProcessTrusted()
     }
 
-    /// Register the app in TCC's Accessibility list so it shows up in
-    /// System Settings with a toggle — without triggering Apple's own
-    /// permission prompt dialog. Per Apple's documentation,
-    /// `AXIsProcessTrustedWithOptions` adds the process to the
-    /// Accessibility list on first call regardless of the prompt option,
-    /// so we pass `prompt: false` to skip the dialog. As a belt-and-
-    /// suspenders, we also make a real AX API call which triggers TCC
-    /// registration on macOS versions where the check alone doesn't.
+    /// Register the app in TCC's Accessibility list so it appears in
+    /// System Settings with a toggle. We use Apple's documented
+    /// `AXIsProcessTrustedWithOptions(prompt: true)` path because that is
+    /// the only call that is *guaranteed* to add the process to the
+    /// Accessibility list on every macOS version we support. Silent
+    /// variants (prompt: false, or just probing an AX API) are not
+    /// reliable — on a fresh install of 1.3.2 the app failed to appear
+    /// in the list at all, forcing users to add it by hand.
+    ///
+    /// Yes, this shows Apple's own "X would like to control this
+    /// computer" dialog alongside our custom onboarding screen. We
+    /// accept that small duplication in exchange for the app reliably
+    /// landing in the list with a toggle the user can flip.
     @discardableResult
     static func registerInAccessibilityList() -> Bool {
-        // Primary: the documented registration API (no prompt dialog).
         let promptKey = kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String
-        let options = [promptKey: false] as CFDictionary
-        _ = AXIsProcessTrustedWithOptions(options)
-
-        // Fallback: an actual AX call that also nudges TCC to register
-        // the process on older macOS builds.
-        let systemWide = AXUIElementCreateSystemWide()
-        var value: CFTypeRef?
-        _ = AXUIElementCopyAttributeValue(
-            systemWide,
-            kAXFocusedUIElementAttribute as CFString,
-            &value
-        )
-
-        return AXIsProcessTrusted()
+        let options = [promptKey: true] as CFDictionary
+        return AXIsProcessTrustedWithOptions(options)
     }
 
     /// Opens System Settings → Privacy & Security → Accessibility.
