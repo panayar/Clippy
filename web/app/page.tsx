@@ -920,13 +920,22 @@ function AboutSection() {
 /*  Features Showcase — alternating spotlight rows                     */
 /* ------------------------------------------------------------------ */
 
-const features = [
+type FeatureShortcut = { keys: string[]; label: string };
+
+const features: Array<{
+  num: string;
+  title: string;
+  description: string;
+  media: string;
+  shortcut?: FeatureShortcut;
+}> = [
   {
     num: "01",
     title: "Smart Filters",
     description:
       "Narrow your clipboard by type: text, links, files, or images. Find the right snippet with a single click, without scrolling through noise.",
     media: "/demos/filters.mp4",
+    shortcut: { keys: ["⌘", "F"], label: "Toggle filters" },
   },
   {
     num: "02",
@@ -934,13 +943,15 @@ const features = [
     description:
       "Type and find any snippet you’ve ever copied, in milliseconds. Fuzzy matching and keyboard-first controls mean you never lose track of what you need.",
     media: "/demos/search.mp4",
+    shortcut: { keys: ["Type"], label: "Start searching" },
   },
   {
     num: "03",
     title: "Clean Up Fast",
     description:
-      "Delete a single item or scrub a sensitive paste in a tap with ⌘⌫. Keep your history tidy without ever leaving the picker.",
+      "Delete a single item or scrub a sensitive paste in a tap. Keep your history tidy without ever leaving the picker.",
     media: "/demos/delete.mp4",
+    shortcut: { keys: ["⌘", "⌫"], label: "Delete selected item" },
   },
   {
     num: "04",
@@ -948,6 +959,7 @@ const features = [
     description:
       "Tweak a snippet in place before it hits the clipboard: trim whitespace, fix a typo, adjust a link. Small fixes shouldn’t break your flow.",
     media: "/demos/edit.mp4",
+    shortcut: { keys: ["⌘", "E"], label: "Edit selected item" },
   },
   {
     num: "05",
@@ -955,6 +967,7 @@ const features = [
     description:
       "Keep go-to snippets pinned to the top of your history. Always one shortcut away, never buried under fresh copies.",
     media: "/demos/pin.mp4",
+    shortcut: { keys: ["⌘", "P"], label: "Pin / unpin item" },
   },
 ];
 
@@ -990,6 +1003,16 @@ function FeatureRow({
         <p className="text-[#6B7280] text-base md:text-lg leading-relaxed max-w-md">
           {feature.description}
         </p>
+        {feature.shortcut && (
+          <div className="feature-shortcut">
+            <span className="feature-shortcut-keys">
+              {feature.shortcut.keys.map((k, i) => (
+                <kbd key={i} className="feature-key">{k}</kbd>
+              ))}
+            </span>
+            <span className="feature-shortcut-label">{feature.shortcut.label}</span>
+          </div>
+        )}
       </div>
     </div>
   );
