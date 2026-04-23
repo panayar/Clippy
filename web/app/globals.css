@@ -1137,12 +1137,13 @@ body {
 
 /* ---- Mobile menu ---- */
 @keyframes mobile-menu-in {
-  from { opacity: 0; transform: translateY(-8px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { transform: translateY(-12px); }
+  to   { transform: translateY(0); }
 }
 
 .mobile-menu-enter {
-  animation: mobile-menu-in 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  animation: mobile-menu-in 0.25s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  background-color: #FFFFFF !important;
 }
 
 /* ---- About section divider ---- */
