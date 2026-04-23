@@ -20,9 +20,10 @@ struct PickerView: View {
 
     private var pinnedItems: [ClipboardItem] {
         filteredItems.filter { $0.isPinned }.sorted { lhs, rhs in
-            // Most recently pinned items appear first.
-            // Fall back to timestamp for legacy items without a pinned_at.
-            (lhs.pinnedAt ?? lhs.timestamp) > (rhs.pinnedAt ?? rhs.timestamp)
+            // Oldest pins stay at the top; newly pinned items land at the
+            // bottom of the pinned list. Fall back to timestamp for legacy
+            // items that don't have a pinned_at.
+            (lhs.pinnedAt ?? lhs.timestamp) < (rhs.pinnedAt ?? rhs.timestamp)
         }
     }
 
@@ -97,20 +98,20 @@ struct PickerView: View {
         }
         .background(.clear)
         .onAppear {
-            selectedIndex = 0
+            selectedIndex = pinnedItems.count
             searchText = ""
             visibleItemIds.removeAll()
         }
         .onChange(of: searchText) { _ in
-            selectedIndex = 0
+            selectedIndex = pinnedItems.count
             visibleItemIds.removeAll()
         }
         .onChange(of: activeFilters) { _ in
-            selectedIndex = 0
+            selectedIndex = pinnedItems.count
             visibleItemIds.removeAll()
         }
         .onReceive(NotificationCenter.default.publisher(for: .clipBarPickerShown)) { _ in
-            selectedIndex = 0
+            selectedIndex = pinnedItems.count
             searchText = ""
             activeFilters = []
             visibleItemIds.removeAll()
