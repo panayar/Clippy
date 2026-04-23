@@ -276,7 +276,7 @@ function Navigation() {
       </div>
 
       {mobileOpen && (
-        <div className="md:hidden fixed inset-0 top-16 z-40 bg-[#FAF7F2] mobile-menu-enter">
+        <div className="md:hidden fixed inset-0 top-16 z-[9998] bg-white mobile-menu-enter shadow-sm">
           <div className="px-6 py-8 flex flex-col gap-2">
             {navLinks.map((link) => (
               <a
