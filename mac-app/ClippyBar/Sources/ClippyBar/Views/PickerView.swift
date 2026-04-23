@@ -11,6 +11,7 @@ struct PickerView: View {
     @State private var editText: String = ""
     @State private var visibleItemIds: Set<String> = []
     @State private var suppressVisibilitySnap: Bool = false
+    @State private var filtersVisible: Bool = true
     @FocusState private var isEditFocused: Bool
     @Namespace private var chipNamespace
 
@@ -81,9 +82,12 @@ struct PickerView: View {
                 .padding(.horizontal, 12)
                 .padding(.bottom, 6)
 
-            filterChips
-                .padding(.horizontal, 12)
-                .padding(.bottom, 8)
+            if filtersVisible {
+                filterChips
+                    .padding(.horizontal, 12)
+                    .padding(.bottom, 8)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
 
             Divider().opacity(0.3)
 
@@ -139,6 +143,14 @@ struct PickerView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .clipBarCancelEdit)) { _ in
             closeEditor()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .clipBarToggleFilters)) { _ in
+            withAnimation(.easeInOut(duration: 0.18)) {
+                filtersVisible.toggle()
+                // When hiding, drop any active filters so the list isn't
+                // silently filtered by an invisible control.
+                if !filtersVisible { activeFilters = [] }
+            }
         }
         .overlay {
             if let item = editingItem {

@@ -11,6 +11,7 @@ extension Notification.Name {
     static let clipBarEditItem = Notification.Name("clipBarEditItem")
     static let clipBarSaveEdit = Notification.Name("clipBarSaveEdit")
     static let clipBarCancelEdit = Notification.Name("clipBarCancelEdit")
+    static let clipBarToggleFilters = Notification.Name("clipBarToggleFilters")
 }
 
 /// Custom panel that accepts first-mouse clicks so SwiftUI tap gestures
@@ -249,6 +250,11 @@ final class PickerWindowController: NSObject, NSWindowDelegate {
                 // Cmd+E to edit selected item
                 if event.modifierFlags.contains(.command) && event.keyCode == 14 {
                     NotificationCenter.default.post(name: .clipBarEditItem, object: nil)
+                    return nil
+                }
+                // Cmd+F to hide/show the filter bar
+                if event.modifierFlags.contains(.command) && event.keyCode == 3 {
+                    NotificationCenter.default.post(name: .clipBarToggleFilters, object: nil)
                     return nil
                 }
                 return event
