@@ -2,6 +2,100 @@ import Carbon
 import ServiceManagement
 import SwiftUI
 
+// MARK: - Picker Commands (single source of truth)
+
+/// Every keyboard action the picker responds to. The global-trigger hotkey
+/// recorder refuses to accept any combo that matches a reserved command
+/// here, so users can't silently clobber an in-picker action.
+struct PickerCommand: Identifiable {
+    let id: String
+    let icon: String
+    let title: String
+    let detail: String
+    let keys: [String]
+    /// `nil` = not reservable (e.g. "just type" or the user's own hotkey).
+    /// Otherwise the (keyCode, modifier mask) we'll block in the recorder.
+    let reserved: (keyCode: UInt16, modifiers: NSEvent.ModifierFlags)?
+}
+
+enum PickerCommands {
+    static let all: [PickerCommand] = [
+        PickerCommand(
+            id: "navigate",
+            icon: "arrow.up.arrow.down",
+            title: "Navigate",
+            detail: "Move the cursor through pinned items and history.",
+            keys: ["↑", "↓"],
+            reserved: nil
+        ),
+        PickerCommand(
+            id: "paste",
+            icon: "return",
+            title: "Paste & close",
+            detail: "Paste the selected item and dismiss the picker.",
+            keys: ["↵"],
+            reserved: nil
+        ),
+        PickerCommand(
+            id: "close",
+            icon: "xmark.circle",
+            title: "Close picker",
+            detail: "Dismiss the picker without pasting.",
+            keys: ["⎋"],
+            reserved: nil
+        ),
+        PickerCommand(
+            id: "search",
+            icon: "magnifyingglass",
+            title: "Search history",
+            detail: "Type anything to fuzzy-search every copied snippet.",
+            keys: ["Type"],
+            reserved: nil
+        ),
+        PickerCommand(
+            id: "filters",
+            icon: "line.3.horizontal.decrease.circle",
+            title: "Toggle filter bar",
+            detail: "Show or hide the Text / Links / Files / Images chips.",
+            keys: ["⌘", "F"],
+            reserved: (UInt16(kVK_ANSI_F), .command)
+        ),
+        PickerCommand(
+            id: "pin",
+            icon: "pin",
+            title: "Pin / unpin item",
+            detail: "Toggle pin on the highlighted item.",
+            keys: ["⌘", "P"],
+            reserved: (UInt16(kVK_ANSI_P), .command)
+        ),
+        PickerCommand(
+            id: "edit",
+            icon: "pencil",
+            title: "Edit before paste",
+            detail: "Open the selected item in an inline editor.",
+            keys: ["⌘", "E"],
+            reserved: (UInt16(kVK_ANSI_E), .command)
+        ),
+        PickerCommand(
+            id: "delete",
+            icon: "trash",
+            title: "Delete item",
+            detail: "Remove the selected item from history permanently.",
+            keys: ["⌘", "⌫"],
+            reserved: (UInt16(kVK_Delete), .command)
+        ),
+    ]
+
+    /// Returns true if the given key combo would collide with an action.
+    static func isReserved(keyCode: UInt16, flags: NSEvent.ModifierFlags) -> Bool {
+        let normalized = flags.intersection(.deviceIndependentFlagsMask)
+        return all.contains { cmd in
+            guard let r = cmd.reserved else { return false }
+            return r.keyCode == keyCode && r.modifiers == normalized
+        }
+    }
+}
+
 // MARK: - Settings Root
 
 struct SettingsView: View {
@@ -10,6 +104,7 @@ struct SettingsView: View {
     enum SettingsTab: String, CaseIterable, Identifiable {
         case general = "General"
         case shortcut = "Shortcut"
+        case commands = "Commands"
         case privacy = "Privacy"
         case excluded = "Excluded Apps"
 
@@ -19,6 +114,7 @@ struct SettingsView: View {
             switch self {
             case .general: return "gear"
             case .shortcut: return "command.square"
+            case .commands: return "keyboard"
             case .privacy: return "lock.shield"
             case .excluded: return "xmark.app"
             }
@@ -89,6 +185,7 @@ struct SettingsView: View {
                     switch tab {
                     case .general: GeneralPane()
                     case .shortcut: ShortcutPane()
+                    case .commands: CommandsPane()
                     case .privacy: PrivacyPane()
                     case .excluded: ExcludedAppsPane()
                     }
@@ -285,6 +382,14 @@ struct ShortcutPane: View {
                             .font(.system(size: 12, weight: .medium)).foregroundStyle(.green)
                             .transition(.opacity)
                     }
+                    if let reservedError = reservedError {
+                        Label(reservedError, systemImage: "exclamationmark.triangle.fill")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(.orange)
+                            .multilineTextAlignment(.center)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .transition(.opacity)
+                    }
                 }
                 .frame(maxWidth: .infinity)
 
@@ -329,12 +434,29 @@ struct ShortcutPane: View {
         currentDisplay = HotkeyManager.displayString(keyCode: m.keyCode, modifiers: m.modifiers)
     }
 
+    @State private var reservedError: String? = nil
+
     private func startRecording() {
-        isRecording = true; justSaved = false
+        isRecording = true; justSaved = false; reservedError = nil
         eventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
             let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
             guard flags.contains(.command) || flags.contains(.option)
                     || flags.contains(.control) || flags.contains(.shift) else { return event }
+            // Block combos that are already in use by picker actions so the
+            // user can't shadow ⌘F/⌘E/⌘P/⌘⌫ etc. with a global trigger.
+            if PickerCommands.isReserved(keyCode: event.keyCode, flags: flags) {
+                let label = HotkeyManager.displayString(
+                    keyCode: UInt32(event.keyCode),
+                    modifiers: HotkeyManager.carbonModifiers(from: flags)
+                )
+                withAnimation {
+                    reservedError = "\(label) is reserved for a picker action. Pick a different combination."
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                    withAnimation { reservedError = nil }
+                }
+                return nil
+            }
             HotkeyManager.shared.updateHotkey(keyCode: UInt32(event.keyCode),
                                                modifiers: HotkeyManager.carbonModifiers(from: flags))
             updateDisplay(); stopRecording()
@@ -354,6 +476,97 @@ struct ShortcutPane: View {
         updateDisplay()
         withAnimation { justSaved = true }
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) { withAnimation { justSaved = false } }
+    }
+}
+
+// MARK: - Commands Pane
+
+struct CommandsPane: View {
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Commands")
+                        .font(.system(size: 20, weight: .bold))
+                    Text("Everything you can do once the ClippyBar picker is open. These shortcuts are reserved — they can't be used as your global trigger.")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                VStack(spacing: 0) {
+                    ForEach(Array(PickerCommands.all.enumerated()), id: \.element.id) { index, cmd in
+                        CommandRow(cmd: cmd)
+                        if index < PickerCommands.all.count - 1 {
+                            Divider().padding(.leading, 44)
+                        }
+                    }
+                }
+                .background(
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(Color(nsColor: .controlBackgroundColor))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .stroke(Color(nsColor: .separatorColor), lineWidth: 0.5)
+                )
+
+                Spacer(minLength: 8)
+            }
+            .padding(28)
+        }
+        .frame(maxWidth: .infinity)
+    }
+}
+
+private struct CommandRow: View {
+    let cmd: PickerCommand
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 12) {
+            Image(systemName: cmd.icon)
+                .font(.system(size: 14))
+                .foregroundStyle(.secondary)
+                .frame(width: 22)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(cmd.title)
+                    .font(.system(size: 13, weight: .semibold))
+                Text(cmd.detail)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer()
+
+            HStack(spacing: 4) {
+                ForEach(cmd.keys, id: \.self) { key in
+                    KeyCap(text: key)
+                }
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+    }
+}
+
+private struct KeyCap: View {
+    let text: String
+    var body: some View {
+        Text(text)
+            .font(.system(size: 11, weight: .semibold, design: .rounded))
+            .foregroundStyle(.primary)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 3)
+            .background(
+                RoundedRectangle(cornerRadius: 5)
+                    .fill(Color(nsColor: .windowBackgroundColor))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 5)
+                    .stroke(Color(nsColor: .separatorColor), lineWidth: 0.5)
+            )
     }
 }
 
