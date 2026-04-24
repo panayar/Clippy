@@ -214,7 +214,6 @@ struct SettingsView: View {
 struct GeneralPane: View {
     @AppStorage("itemLimit") private var itemLimit: Int = 50
     @AppStorage("retentionDays") private var retentionDays: Int = 7
-    @AppStorage("autoPasteEnabled") private var autoPasteEnabled: Bool = true
     @AppStorage("launchAtLogin") private var launchAtLogin: Bool = false
     @AppStorage("dismissOnClickOutside") private var dismissOnClickOutside: Bool = false
 
@@ -272,9 +271,6 @@ struct GeneralPane: View {
                 Divider()
 
                 VStack(alignment: .leading, spacing: 16) {
-                    toggleRow(isOn: $autoPasteEnabled,
-                              title: "Auto-paste on selection",
-                              subtitle: "Paste automatically after picking an item")
                     toggleRow(isOn: $dismissOnClickOutside,
                               title: "Dismiss on click outside",
                               subtitle: "Hide the clipboard picker when you click outside of it")

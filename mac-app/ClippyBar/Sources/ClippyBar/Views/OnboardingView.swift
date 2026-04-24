@@ -1,12 +1,10 @@
 import SwiftUI
 import AppKit
 
-// MARK: - Full Onboarding (new users)
+// MARK: - Onboarding
 
 struct OnboardingView: View {
     @State private var currentStep = 0
-    @State private var accessibilityGranted = Permissions.isAccessibilityEnabled()
-    @State private var pollTimer: Timer?
     var onComplete: () -> Void
 
     private let steps = [
@@ -15,21 +13,14 @@ struct OnboardingView: View {
             iconColor: .purple,
             title: "Welcome to ClippyBar",
             subtitle: "Everything you copy, instantly recalled.",
-            body: "ClippyBar lives in your menu bar and remembers everything you copy. Search, pin, and paste with a single shortcut."
-        ),
-        OnboardingStep(
-            icon: "hand.raised.fill",
-            iconColor: .blue,
-            title: "Enable Accessibility",
-            subtitle: "Required for auto-paste to work.",
-            body: "ClippyBar needs Accessibility permission to paste items into other apps. Without it, items are copied to your clipboard but won't auto-paste."
+            body: "ClippyBar lives in your menu bar and remembers everything you copy. Search, pin, and pull any snippet back in a second."
         ),
         OnboardingStep(
             icon: "keyboard.fill",
             iconColor: .orange,
             title: "Your Shortcut",
             subtitle: "Press Option + V anywhere.",
-            body: "This opens the ClippyBar picker at your cursor. Search your history, select an item, and it's pasted instantly. You can customize this in Settings."
+            body: "This opens the ClippyBar picker at your cursor. Pick an item with ↑ ↓ and ↵ to copy it, then press ⌘V to paste it into the app you're using."
         ),
         OnboardingStep(
             icon: "checkmark.circle.fill",
@@ -72,11 +63,6 @@ struct OnboardingView: View {
 
             Spacer()
 
-            if currentStep == 1 {
-                accessibilityAction
-                    .padding(.bottom, 12)
-            }
-
             HStack {
                 if currentStep > 0 {
                     Button("Back") {
@@ -90,8 +76,6 @@ struct OnboardingView: View {
                 Spacer()
 
                 if currentStep < steps.count - 1 {
-                    let blocked = currentStep == 1 && !accessibilityGranted
-
                     Button(action: {
                         withAnimation { currentStep += 1 }
                     }) {
@@ -100,13 +84,9 @@ struct OnboardingView: View {
                             .foregroundColor(.white)
                             .padding(.horizontal, 20)
                             .padding(.vertical, 8)
-                            .background(
-                                blocked ? Color.secondary.opacity(0.4) : Color.accentColor,
-                                in: Capsule()
-                            )
+                            .background(Color.accentColor, in: Capsule())
                     }
                     .buttonStyle(.plain)
-                    .disabled(blocked)
                 } else {
                     Button(action: onComplete) {
                         Text("Get Started")
@@ -123,31 +103,6 @@ struct OnboardingView: View {
             .padding(.bottom, 24)
         }
         .frame(width: 440, height: 400)
-        .onAppear {
-            if currentStep == 1 { startPollingAccessibility() }
-        }
-        .onChange(of: currentStep) { step in
-            if step == 1 { startPollingAccessibility() }
-            else { stopPollingAccessibility() }
-        }
-        .onDisappear { stopPollingAccessibility() }
-    }
-
-    private func startPollingAccessibility() {
-        accessibilityGranted = Permissions.isAccessibilityEnabled()
-        stopPollingAccessibility()
-        let timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
-            Task { @MainActor in
-                accessibilityGranted = Permissions.isAccessibilityEnabled()
-                if accessibilityGranted { stopPollingAccessibility() }
-            }
-        }
-        pollTimer = timer
-    }
-
-    private func stopPollingAccessibility() {
-        pollTimer?.invalidate()
-        pollTimer = nil
     }
 
     private func stepView(_ step: OnboardingStep) -> some View {
@@ -172,7 +127,7 @@ struct OnboardingView: View {
                 .padding(.horizontal, 40)
                 .fixedSize(horizontal: false, vertical: true)
 
-            if currentStep == 2 {
+            if currentStep == 1 {
                 HStack(spacing: 8) {
                     keycap("\u{2325}")
                     Text("+").foregroundStyle(.secondary).font(.system(size: 16))
@@ -180,49 +135,6 @@ struct OnboardingView: View {
                 }
                 .padding(.top, 8)
             }
-        }
-    }
-
-    private var accessibilityAction: some View {
-        VStack(spacing: 12) {
-            if accessibilityGranted {
-                HStack(spacing: 6) {
-                    Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
-                    Text("Accessibility is enabled")
-                        .font(.system(size: 13, weight: .medium)).foregroundStyle(.green)
-                }
-                .transition(.opacity)
-                .animation(.easeInOut, value: accessibilityGranted)
-            } else {
-                VStack(spacing: 12) {
-                    AnimatedToggleHint()
-
-                    Button(action: openAccessibility) {
-                        HStack(spacing: 6) {
-                            Image(systemName: "gear")
-                            Text("Open Accessibility Settings")
-                        }
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .background(Color.blue, in: Capsule())
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-        }
-    }
-
-    private func openAccessibility() {
-        // Registers the app in TCC's Accessibility list so a toggle
-        // appears in System Settings. This also shows Apple's system
-        // dialog on first call — if the user clicks "Open System
-        // Settings" there, we're done. Otherwise our own URL below
-        // opens the Accessibility pane as a fallback.
-        Permissions.registerInAccessibilityList()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-            Permissions.openAccessibilitySettings()
         }
     }
 
@@ -243,124 +155,6 @@ struct OnboardingView: View {
     }
 }
 
-// MARK: - Accessibility Prompt (returning users who lost access)
-
-struct AccessibilityPromptView: View {
-    var body: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 40, weight: .light))
-                .foregroundStyle(.orange)
-                .frame(height: 50)
-
-            Text("Accessibility Disabled")
-                .font(.system(size: 20, weight: .semibold))
-
-            Text("Auto-paste won't work without it.")
-                .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(.secondary)
-
-            Text("ClippyBar needs Accessibility permission to paste items into other apps. Please re-enable it in System Settings.")
-                .font(.system(size: 13))
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .lineSpacing(4)
-                .padding(.horizontal, 40)
-
-            Spacer().frame(height: 8)
-
-            AnimatedToggleHint()
-
-            Button(action: {
-                Permissions.registerInAccessibilityList()
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                    Permissions.openAccessibilitySettings()
-                }
-            }) {
-                HStack(spacing: 6) {
-                    Image(systemName: "gear")
-                    Text("Open Accessibility Settings")
-                }
-                .font(.system(size: 13, weight: .medium))
-                .foregroundColor(.white)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .background(Color.blue, in: Capsule())
-            }
-            .buttonStyle(.plain)
-
-            Text("It will auto-detect when you re-enable access")
-                .font(.system(size: 11))
-                .foregroundStyle(.tertiary)
-        }
-        .padding(24)
-        .frame(width: 400, height: 380)
-    }
-}
-
-// MARK: - Celebration Screen (after re-enabling access)
-
-struct CelebrationView: View {
-    @State private var confettiVisible = false
-    @State private var scale: CGFloat = 0.5
-    var onDismiss: () -> Void
-
-    var body: some View {
-        ZStack {
-            // Confetti particles
-            if confettiVisible {
-                ForEach(0..<30, id: \.self) { i in
-                    ConfettiParticle(index: i)
-                }
-            }
-
-            VStack(spacing: 20) {
-                Spacer()
-
-                Image(systemName: "party.popper.fill")
-                    .font(.system(size: 48))
-                    .foregroundStyle(.purple)
-                    .scaleEffect(scale)
-
-                Text("Welcome Back!")
-                    .font(.system(size: 24, weight: .bold))
-                    .scaleEffect(scale)
-
-                Text("Enjoy ClippyBar")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundStyle(.secondary)
-                    .scaleEffect(scale)
-
-                Spacer()
-
-                Button(action: onDismiss) {
-                    Text("Let's Go")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 24)
-                        .padding(.vertical, 10)
-                        .background(Color.purple, in: Capsule())
-                }
-                .buttonStyle(.plain)
-                .padding(.bottom, 24)
-            }
-        }
-        .frame(width: 360, height: 300)
-        .onAppear {
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.6)) {
-                scale = 1.0
-            }
-            withAnimation(.easeOut(duration: 0.3).delay(0.2)) {
-                confettiVisible = true
-            }
-            // Auto-dismiss after 4 seconds
-            DispatchQueue.main.asyncAfter(deadline: .now() + 4) {
-                onDismiss()
-            }
-        }
-    }
-}
-
 // MARK: - Confetti Particle
 
 private struct ConfettiParticle: View {
@@ -375,7 +169,7 @@ private struct ConfettiParticle: View {
     var body: some View {
         let size = CGFloat.random(in: 5...10)
         let color = colors[index % colors.count]
-        let shape = index % 3 // 0=circle, 1=rect, 2=diamond
+        let shape = index % 3
 
         Group {
             if shape == 0 {
@@ -405,52 +199,6 @@ private struct ConfettiParticle: View {
     }
 }
 
-// MARK: - Animated Toggle Hint
-
-private struct AnimatedToggleHint: View {
-    @State private var isOn = false
-    @State private var timer: Timer?
-
-    var body: some View {
-        HStack {
-            Text("ClippyBar")
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(.primary)
-
-            Spacer()
-
-            ZStack(alignment: isOn ? .trailing : .leading) {
-                Capsule()
-                    .fill(isOn ? Color.green : Color.secondary.opacity(0.3))
-                    .frame(width: 36, height: 20)
-
-                Circle()
-                    .fill(.white)
-                    .frame(width: 16, height: 16)
-                    .shadow(color: .black.opacity(0.15), radius: 1, y: 0.5)
-                    .padding(.horizontal, 2)
-            }
-            .animation(.easeInOut(duration: 0.3), value: isOn)
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-        .background(RoundedRectangle(cornerRadius: 8).fill(Color.secondary.opacity(0.08)))
-        .frame(width: 220)
-        .onAppear {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                withAnimation { isOn = true }
-            }
-            timer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { _ in
-                withAnimation { isOn.toggle() }
-            }
-        }
-        .onDisappear {
-            timer?.invalidate()
-            timer = nil
-        }
-    }
-}
-
 // MARK: - Data Model
 
 private struct OnboardingStep {
@@ -471,28 +219,12 @@ final class OnboardingWindowController {
 
     private init() {}
 
-    /// Flow 1: Full onboarding for new users
     func showFullOnboarding(onComplete: @escaping () -> Void) {
         let view = OnboardingView {
             self.dismissIfShowing()
             onComplete()
         }
         showWindow(content: view, width: 440, height: 400)
-    }
-
-    /// Flow 2: Accessibility-only prompt for returning users
-    func showAccessibilityPrompt() {
-        let view = AccessibilityPromptView()
-        showWindow(content: view, width: 400, height: 380)
-    }
-
-    /// Celebration screen after re-enabling access
-    func showCelebration(onDismiss: @escaping () -> Void) {
-        let view = CelebrationView {
-            self.dismissIfShowing()
-            onDismiss()
-        }
-        showWindow(content: view, width: 360, height: 300)
     }
 
     func dismissIfShowing() {

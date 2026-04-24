@@ -9,9 +9,9 @@
     <key>CFBundleIdentifier</key>
     <string>com.clipbar.app</string>
     <key>CFBundleVersion</key>
-    <string>11</string>
+    <string>12</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.3.4</string>
+    <string>1.3.5</string>
     <key>CFBundleIconFile</key>
     <string>AppIcon</string>
     <key>CFBundleIconName</key>
@@ -26,8 +26,6 @@
     <true/>
     <key>LSApplicationCategoryType</key>
     <string>public.app-category.productivity</string>
-    <key>NSAccessibilityUsageDescription</key>
-    <string>ClippyBar needs accessibility access to simulate paste actions (Cmd+V) for the auto-paste feature. Global hotkeys work without this permission.</string>
     <key>NSHumanReadableCopyright</key>
     <string>Copyright 2026 ClippyBar. All rights reserved.</string>
     <key>ITSAppUsesNonExemptEncryption</key>
