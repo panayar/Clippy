@@ -719,6 +719,10 @@ struct PickerView: View {
         store.touchItem(item)
         monitor.skipNextChange = true
 
+        let autoPaste = UserDefaults.standard.object(forKey: "autoPasteEnabled") == nil
+            ? true
+            : UserDefaults.standard.bool(forKey: "autoPasteEnabled")
+
         switch item.contentType {
         case .image:
             item.loadImageAsync { img in
@@ -732,6 +736,9 @@ struct PickerView: View {
                     }
                 }
                 PickerWindowController.shared.hideAndRestoreFocus()
+                if autoPaste {
+                    AutoPaster.pasteAfterDelay(milliseconds: 350)
+                }
             }
         case .file:
             let fileURL = URL(fileURLWithPath: item.content)
@@ -739,11 +746,17 @@ struct PickerView: View {
             pb.clearContents()
             pb.writeObjects([fileURL as NSURL])
             PickerWindowController.shared.hideAndRestoreFocus()
+            if autoPaste {
+                AutoPaster.pasteAfterDelay(milliseconds: 200)
+            }
         case .text, .link:
             let pb = NSPasteboard.general
             pb.clearContents()
             pb.setString(item.content, forType: .string)
             PickerWindowController.shared.hideAndRestoreFocus()
+            if autoPaste {
+                AutoPaster.pasteAfterDelay(milliseconds: 200)
+            }
         }
     }
 }
