@@ -10,23 +10,46 @@ enum Permissions {
     }
 
     /// Register the app in TCC's Accessibility list so it appears in
-    /// System Settings with a toggle. We use Apple's documented
-    /// `AXIsProcessTrustedWithOptions(prompt: true)` path because that is
-    /// the only call that is *guaranteed* to add the process to the
-    /// Accessibility list on every macOS version we support. Silent
-    /// variants (prompt: false, or just probing an AX API) are not
-    /// reliable — on a fresh install of 1.3.2 the app failed to appear
-    /// in the list at all, forcing users to add it by hand.
+    /// System Settings with a toggle — without showing Apple's native
+    /// "would like to control this computer" dialog (our custom
+    /// onboarding already opens Settings, so the system dialog is
+    /// redundant and confusing).
     ///
-    /// Yes, this shows Apple's own "X would like to control this
-    /// computer" dialog alongside our custom onboarding screen. We
-    /// accept that small duplication in exchange for the app reliably
-    /// landing in the list with a toggle the user can flip.
+    /// There's no single Apple-documented silent API that reliably
+    /// registers on every macOS version, so we fire three different
+    /// triggers. Whichever succeeds, succeeds: the call itself fails
+    /// without permission, but TCC still lists the process afterwards.
     @discardableResult
     static func registerInAccessibilityList() -> Bool {
+        // 1. Documented check with prompt explicitly disabled.
         let promptKey = kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String
-        let options = [promptKey: true] as CFDictionary
-        return AXIsProcessTrustedWithOptions(options)
+        let options = [promptKey: false] as CFDictionary
+        _ = AXIsProcessTrustedWithOptions(options)
+
+        // 2. Probe a real AX API on the system-wide element.
+        let systemWide = AXUIElementCreateSystemWide()
+        var value: CFTypeRef?
+        _ = AXUIElementCopyAttributeValue(
+            systemWide,
+            kAXFocusedUIElementAttribute as CFString,
+            &value
+        )
+
+        // 3. Attempt to install a global event tap — also requires AX
+        //    and registers the process in TCC when it fails.
+        let mask = CGEventMask(1 << CGEventType.keyDown.rawValue)
+        if let tap = CGEvent.tapCreate(
+            tap: .cgSessionEventTap,
+            place: .headInsertEventTap,
+            options: .defaultTap,
+            eventsOfInterest: mask,
+            callback: { _, _, event, _ in Unmanaged.passUnretained(event) },
+            userInfo: nil
+        ) {
+            CFMachPortInvalidate(tap)
+        }
+
+        return AXIsProcessTrusted()
     }
 
     /// Opens System Settings → Privacy & Security → Accessibility.
