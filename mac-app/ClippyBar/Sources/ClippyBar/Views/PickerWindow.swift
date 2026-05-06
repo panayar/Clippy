@@ -12,6 +12,7 @@ extension Notification.Name {
     static let clipBarSaveEdit = Notification.Name("clipBarSaveEdit")
     static let clipBarCancelEdit = Notification.Name("clipBarCancelEdit")
     static let clipBarToggleFilters = Notification.Name("clipBarToggleFilters")
+    static let clipBarClearAll = Notification.Name("clipBarClearAll")
 }
 
 /// Custom panel that accepts first-mouse clicks so SwiftUI tap gestures
@@ -142,11 +143,27 @@ final class PickerWindowController: NSObject, NSWindowDelegate {
         panel.minSize = NSSize(width: 320, height: 260)
         panel.maxSize = NSSize(width: 600, height: 700)
 
-        // The root visual effect view provides the native macOS frosted glass
+        // The root visual effect view provides the native macOS frosted glass.
+        // .menu matches the dense dark blur Apple uses for popovers/menus —
+        // the system Clipboard panel uses the same look. Combined with the
+        // dark-tint overlay below it gets close to the reference.
         let visualEffect = FirstMouseVisualEffectView()
-        visualEffect.material = .sidebar
+        visualEffect.material = .menu
         visualEffect.blendingMode = .behindWindow
         visualEffect.state = .active
+        visualEffect.appearance = NSAppearance(named: .vibrantDark)
+        visualEffect.wantsLayer = true
+        visualEffect.layer?.cornerRadius = 12
+        visualEffect.layer?.masksToBounds = true
+
+        // Subtle dark tint layered on top of the blur so the contents read
+        // crisply even on bright wallpapers / over light app windows.
+        let tintLayer = CALayer()
+        tintLayer.backgroundColor = NSColor.black.withAlphaComponent(0.18).cgColor
+        tintLayer.cornerRadius = 12
+        visualEffect.layer?.addSublayer(tintLayer)
+        tintLayer.frame = visualEffect.bounds
+        tintLayer.autoresizingMask = [.layerWidthSizable, .layerHeightSizable]
 
         guard let store = store, let monitor = monitor else {
             print("[ClippyBar] PickerWindowController not configured — call configure() first")
@@ -234,6 +251,11 @@ final class PickerWindowController: NSObject, NSWindowDelegate {
                 NotificationCenter.default.post(name: .clipBarSelect, object: nil)
                 return nil
             case 51: // Delete/Backspace
+                // Cmd+Shift+Delete clears the entire clipboard history
+                if event.modifierFlags.contains(.command) && event.modifierFlags.contains(.shift) {
+                    NotificationCenter.default.post(name: .clipBarClearAll, object: nil)
+                    return nil
+                }
                 // Cmd+Delete deletes the selected clipboard item
                 if event.modifierFlags.contains(.command) {
                     NotificationCenter.default.post(name: .clipBarDelete, object: nil)

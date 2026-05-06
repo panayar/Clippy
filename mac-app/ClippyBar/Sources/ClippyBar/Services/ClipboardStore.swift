@@ -54,7 +54,6 @@ final class ClipboardStore: ObservableObject {
         openDatabase()
         createTableIfNeeded()
         loadItems()
-        pruneExpiredItems()
     }
 
     deinit {
@@ -72,7 +71,15 @@ final class ClipboardStore: ObservableObject {
                 print("[ClippyBar] DB open error: \(String(cString: sqlite3_errmsg(db)))")
             }
             db = nil
+            return
         }
+        // WAL gives us concurrent reads/writes and amortizes commit cost — without
+        // it, every addItem fsyncs the whole file. synchronous=NORMAL is safe under
+        // WAL and meaningfully faster on spinning disks / slow SSDs.
+        sqlite3_exec(db, "PRAGMA journal_mode=WAL;", nil, nil, nil)
+        sqlite3_exec(db, "PRAGMA synchronous=NORMAL;", nil, nil, nil)
+        sqlite3_exec(db, "PRAGMA temp_store=MEMORY;", nil, nil, nil)
+        sqlite3_busy_timeout(db, 2000)
     }
 
     private func createTableIfNeeded() {
@@ -107,11 +114,25 @@ final class ClipboardStore: ObservableObject {
     // MARK: - CRUD
 
     private func loadItems() {
-        guard let db = db, !memoryOnlyMode else { return }
+        guard !memoryOnlyMode else { return }
+        let dbPtr = SendableDBPointer(pointer: self.db)
+        // Reading SQLite synchronously on the main thread blocked launch when
+        // history was large — push the read to the dbQueue and publish on main.
+        dbQueue.async {
+            let loaded = Self.fetchAllItems(db: dbPtr.pointer)
+            Task { @MainActor [weak self] in
+                self?.items = loaded
+                // Prune retention-expired items now that they're actually loaded.
+                self?.pruneExpiredItems()
+            }
+        }
+    }
 
+    private nonisolated static func fetchAllItems(db: OpaquePointer?) -> [ClipboardItem] {
+        guard let db = db else { return [] }
         let sql = "SELECT id, content, content_type, timestamp, is_pinned, pinned_at, source_app FROM clipboard_items ORDER BY timestamp DESC;"
         var stmt: OpaquePointer?
-        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return }
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return [] }
         defer { sqlite3_finalize(stmt) }
 
         var loaded: [ClipboardItem] = []
@@ -140,7 +161,7 @@ final class ClipboardStore: ObservableObject {
                 sourceApp: sourceApp
             ))
         }
-        items = loaded
+        return loaded
     }
 
     func addItem(_ item: ClipboardItem) {

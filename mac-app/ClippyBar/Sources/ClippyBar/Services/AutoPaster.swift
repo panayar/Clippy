@@ -1,31 +1,30 @@
-import ApplicationServices
-import Foundation
+import AppKit
+import Carbon
 
-/// Simulates a Cmd+V keystroke using CGEvent to auto-paste clipboard content.
+/// Synthesizes a ⌘V keystroke so the picked clipboard item is pasted into
+/// whatever app was frontmost before the picker opened. Requires the user
+/// to have granted Accessibility permission; without it the system silently
+/// drops the synthesized event and the user just sees the value land on the
+/// clipboard with no paste.
 enum AutoPaster {
-    /// Paste after a delay so the target app regains focus first.
-    /// Runs entirely on a background thread — main thread is never touched.
-    static func pasteAfterDelay(milliseconds: Int = 200) {
-        DispatchQueue.global(qos: .userInteractive).asyncAfter(deadline: .now() + .milliseconds(milliseconds)) {
-            guard Permissions.isAccessibilityEnabled() else { return }
-
-            // Use .privateState so our simulated keys don't interfere with
-            // the user's real keyboard state or with web apps (WhatsApp Web,
-            // Slack, etc.) that have their own keyboard event handlers.
-            let source = CGEventSource(stateID: .privateState)
-            let vKeyCode: CGKeyCode = 0x09
-
-            guard let keyDown = CGEvent(keyboardEventSource: source, virtualKey: vKeyCode, keyDown: true),
-                  let keyUp = CGEvent(keyboardEventSource: source, virtualKey: vKeyCode, keyDown: false) else { return }
-
-            keyDown.flags = .maskCommand
-            keyUp.flags = .maskCommand
-
-            // Post at session level — less intrusive than HID level,
-            // works better with browser-based apps.
-            keyDown.post(tap: .cgSessionEventTap)
-            usleep(12000) // 12ms gap
-            keyUp.post(tap: .cgSessionEventTap)
+    /// Posts a ⌘V key-down/up pair after `milliseconds`. The delay gives the
+    /// previous app's window time to come back into focus before we type.
+    static func pasteAfterDelay(milliseconds: Int) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(milliseconds)) {
+            paste()
         }
+    }
+
+    static func paste() {
+        guard let source = CGEventSource(stateID: .combinedSessionState) else { return }
+        let vCode = UInt16(kVK_ANSI_V)
+
+        let cmdDown = CGEvent(keyboardEventSource: source, virtualKey: vCode, keyDown: true)
+        cmdDown?.flags = .maskCommand
+        cmdDown?.post(tap: .cghidEventTap)
+
+        let cmdUp = CGEvent(keyboardEventSource: source, virtualKey: vCode, keyDown: false)
+        cmdUp?.flags = .maskCommand
+        cmdUp?.post(tap: .cghidEventTap)
     }
 }

@@ -1,6 +1,10 @@
 import SwiftUI
 
 struct PickerView: View {
+    /// Selection accent — vibrant magenta/pink, matches the requested mock.
+    static let selectionPink = Color(red: 0.78, green: 0.32, blue: 0.86)
+    static let selectionPinkDeep = Color(red: 0.66, green: 0.24, blue: 0.78)
+
     @EnvironmentObject var store: ClipboardStore
     @EnvironmentObject var monitor: ClipboardMonitor
     @State private var searchText = ""
@@ -12,6 +16,7 @@ struct PickerView: View {
     @State private var visibleItemIds: Set<String> = []
     @State private var suppressVisibilitySnap: Bool = false
     @State private var filtersVisible: Bool = true
+    @State private var showClearAllConfirm: Bool = false
     @FocusState private var isEditFocused: Bool
     @Namespace private var chipNamespace
 
@@ -101,6 +106,7 @@ struct PickerView: View {
             statusBar
         }
         .background(.clear)
+        .environment(\.colorScheme, .dark)
         .onAppear {
             selectedIndex = pinnedItems.count
             searchText = ""
@@ -143,6 +149,25 @@ struct PickerView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .clipBarCancelEdit)) { _ in
             closeEditor()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .clipBarClearAll)) { _ in
+            // Don't trigger while editing — Backspace inside the editor would
+            // otherwise compete with the shortcut.
+            if editingItem == nil && !store.items.isEmpty {
+                showClearAllConfirm = true
+            }
+        }
+        .alert("Clear clipboard history?", isPresented: $showClearAllConfirm) {
+            Button("Clear", role: .destructive) {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    store.clearAll()
+                }
+                selectedIndex = 0
+                visibleItemIds.removeAll()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This will permanently remove all \(store.items.count) item\(store.items.count == 1 ? "" : "s"). Pinned items will also be removed.")
         }
         .onReceive(NotificationCenter.default.publisher(for: .clipBarToggleFilters)) { _ in
             withAnimation(.easeInOut(duration: 0.18)) {
@@ -215,15 +240,15 @@ struct PickerView: View {
             }
             .padding(.horizontal, isActive ? 12 : 10)
             .padding(.vertical, 5)
-            .foregroundStyle(isActive ? Color.accentColor : .secondary)
+            .foregroundStyle(isActive ? Self.selectionPink : .secondary)
             .background {
                 Capsule()
-                    .fill(isActive ? Color.accentColor.opacity(0.18) : Color.primary.opacity(0.05))
+                    .fill(isActive ? Self.selectionPink.opacity(0.22) : Color.white.opacity(0.06))
                     .matchedGeometryEffect(id: type.rawValue, in: chipNamespace)
             }
             .overlay {
                 Capsule()
-                    .strokeBorder(isActive ? Color.accentColor.opacity(0.3) : Color.clear, lineWidth: 1)
+                    .strokeBorder(isActive ? Self.selectionPink.opacity(0.55) : Color.clear, lineWidth: 1)
             }
             .scaleEffect(isActive ? 1.04 : 1.0)
         }
@@ -264,16 +289,26 @@ struct PickerView: View {
     }
 
     private var itemListView: some View {
-        ScrollViewReader { proxy in
+        // Compute the search/filter/group output ONCE per body re-evaluation.
+        // Previously each row called globalIndexFor → orderedItems → re-ran the
+        // search and filtering, costing O(N²) per render and stuttering visibly
+        // once the history grew past a few dozen items.
+        let pinned = pinnedItems
+        let groups = groupedUnpinnedItems
+        let ordered = pinned + groups.flatMap { $0.items }
+        var indexMap: [String: Int] = [:]
+        indexMap.reserveCapacity(ordered.count)
+        for (i, item) in ordered.enumerated() { indexMap[item.id] = i }
+
+        return ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(spacing: 1) {
                     // Pinned section
-                    if !pinnedItems.isEmpty {
+                    if !pinned.isEmpty {
                         sectionHeader("Pinned", color: .orange)
 
-                        ForEach(pinnedItems) { item in
-                            let globalIndex = globalIndexFor(item: item)
-                            itemRow(item: item, index: globalIndex)
+                        ForEach(pinned) { item in
+                            itemRow(item: item, index: indexMap[item.id] ?? -1)
                                 .id("pinned-\(item.id)")
                         }
 
@@ -283,13 +318,11 @@ struct PickerView: View {
                     }
 
                     // Unpinned items grouped by day
-                    let groups = groupedUnpinnedItems
-                    ForEach(Array(groups.enumerated()), id: \.element.label) { groupIndex, group in
+                    ForEach(Array(groups.enumerated()), id: \.element.label) { _, group in
                         sectionHeader(group.label, color: .secondary)
 
                         ForEach(group.items) { item in
-                            let globalIndex = globalIndexFor(item: item)
-                            itemRow(item: item, index: globalIndex)
+                            itemRow(item: item, index: indexMap[item.id] ?? -1)
                                 .id(item.id)
                         }
                     }
@@ -297,7 +330,7 @@ struct PickerView: View {
                 .padding(6)
             }
             .onChange(of: selectedIndex) { newIndex in
-                if let item = orderedItems[safe: newIndex] {
+                if let item = ordered[safe: newIndex] {
                     let scrollId = item.isPinned ? "pinned-\(item.id)" : item.id
                     suppressVisibilitySnap = true
                     withAnimation(.easeOut(duration: 0.1)) {
@@ -372,7 +405,8 @@ struct PickerView: View {
                     actionButton(
                         icon: item.isPinned ? "pin.slash.fill" : "pin.fill",
                         color: .orange,
-                        tooltip: item.isPinned ? "Unpin" : "Pin"
+                        tooltip: item.isPinned ? "Unpin" : "Pin",
+                        onSelected: isSelected
                     ) {
                         hoveredId = nil
                         withAnimation(.easeInOut(duration: 0.2)) {
@@ -385,7 +419,8 @@ struct PickerView: View {
                         actionButton(
                             icon: "pencil",
                             color: .blue,
-                            tooltip: "Edit"
+                            tooltip: "Edit",
+                            onSelected: isSelected
                         ) {
                             editText = item.content
                             editingItem = item
@@ -399,7 +434,8 @@ struct PickerView: View {
                     actionButton(
                         icon: "trash.fill",
                         color: .red,
-                        tooltip: "Delete"
+                        tooltip: "Delete",
+                        onSelected: isSelected
                     ) {
                         hoveredId = nil
                         withAnimation(.easeInOut(duration: 0.2)) {
@@ -415,10 +451,16 @@ struct PickerView: View {
         .background {
             if isSelected {
                 RoundedRectangle(cornerRadius: 6)
-                    .fill(Color.accentColor.opacity(0.18))
+                    .fill(
+                        LinearGradient(
+                            colors: [Self.selectionPink, Self.selectionPinkDeep],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
             } else if isHovered {
                 RoundedRectangle(cornerRadius: 6)
-                    .fill(Color.primary.opacity(0.04))
+                    .fill(Color.primary.opacity(0.06))
             }
         }
         .contentShape(Rectangle())
@@ -463,55 +505,51 @@ struct PickerView: View {
 
     @ViewBuilder
     private func itemContent(item: ClipboardItem) -> some View {
-        switch item.contentType {
-        case .image:
-            AsyncImageThumbnail(item: item)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Image")
-                    .font(.system(size: 13))
-                    .foregroundStyle(.secondary)
-                timestampRow(item: item)
-            }
-        case .file:
-            Image(systemName: "doc.fill")
-                .font(.system(size: 18))
-                .foregroundStyle(.blue.opacity(0.7))
-                .frame(width: 28)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(item.preview(maxLength: 120))
-                    .font(.system(size: 13))
-                    .lineLimit(1)
-                timestampRow(item: item)
-            }
-        case .link:
-            Image(systemName: "link")
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(.blue.opacity(0.7))
-                .frame(width: 28)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(item.preview(maxLength: 120))
-                    .font(.system(size: 13))
-                    .foregroundStyle(.blue)
-                    .lineLimit(2)
-                timestampRow(item: item)
-            }
-        case .text:
-            VStack(alignment: .leading, spacing: 2) {
-                Text(item.preview(maxLength: 120))
-                    .font(.system(size: 13))
-                    .lineLimit(2)
-                timestampRow(item: item)
-            }
+        ItemThumbnail(item: item)
+
+        VStack(alignment: .leading, spacing: 2) {
+            Text(itemTitle(for: item))
+                .font(.system(size: 13))
+                .foregroundStyle(.primary)
+                .lineLimit(1)
+                .truncationMode(.tail)
+            timestampRow(item: item)
         }
     }
 
-    private func actionButton(icon: String, color: Color, tooltip: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
+    private func itemTitle(for item: ClipboardItem) -> String {
+        switch item.contentType {
+        case .image:
+            return "Image"
+        case .file, .text, .link:
+            return item.preview(maxLength: 140)
+        }
+    }
+
+    private func actionButton(
+        icon: String,
+        color: Color,
+        tooltip: String,
+        onSelected: Bool = false,
+        action: @escaping () -> Void
+    ) -> some View {
+        // On the pink-selected row, swap the colored chip for a clean
+        // white-on-glass look so the buttons read clearly against the
+        // strong magenta background. Off-selection, keep the per-action
+        // tint (orange/blue/red) for affordance.
+        let foreground: Color = onSelected ? .white : color.opacity(0.85)
+        let fill: Color = onSelected ? Color.white.opacity(0.22) : color.opacity(0.12)
+
+        return Button(action: action) {
             Image(systemName: icon)
-                .font(.system(size: 10))
-                .foregroundStyle(color.opacity(0.7))
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(foreground)
                 .frame(width: 22, height: 22)
-                .background(color.opacity(0.1), in: RoundedRectangle(cornerRadius: 4))
+                .background(fill, in: RoundedRectangle(cornerRadius: 5))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 5)
+                        .stroke(Color.white.opacity(onSelected ? 0.18 : 0), lineWidth: 0.5)
+                )
         }
         .buttonStyle(.plain)
         .help(tooltip)
@@ -519,14 +557,21 @@ struct PickerView: View {
 
     private func timestampRow(item: ClipboardItem) -> some View {
         HStack(spacing: 4) {
-            Text(item.relativeTimestamp)
-            if let app = item.sourceApp {
-                Text("\u{00B7}")
-                Text(app)
-            }
+            Text(typeLabel(for: item))
+            Text("\u{00B7}")
+            Text("Copied \(item.relativeTimestamp)")
         }
         .font(.system(size: 10))
-        .foregroundStyle(.tertiary)
+        .foregroundStyle(.secondary)
+    }
+
+    private func typeLabel(for item: ClipboardItem) -> String {
+        switch item.contentType {
+        case .text: return "Text"
+        case .link: return "Link"
+        case .file: return "File"
+        case .image: return "Image"
+        }
     }
 
     // MARK: - Status Bar
@@ -551,27 +596,32 @@ struct PickerView: View {
             HStack(spacing: 10) {
                 kbHint(keys: ["\u{2191}\u{2193}"], label: "navigate")
                 kbHint(keys: ["\u{21A9}\u{FE0E}"], label: "paste")
-                kbHint(keys: ["\u{2318}P"], label: "pin")
-                kbHint(keys: ["\u{2318}E"], label: "edit")
-                kbHint(keys: ["\u{2318}\u{232B}"], label: "delete")
+                kbHint(keys: ["\u{2318}\u{21E7}\u{232B}"], label: "clear")
             }
+            .fixedSize()
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 5)
     }
 
     private func kbHint(keys: [String], label: String) -> some View {
-        HStack(spacing: 2) {
+        HStack(spacing: 3) {
             ForEach(keys, id: \.self) { key in
                 Text(key)
-                    .font(.system(size: 9, weight: .medium, design: .rounded))
-                    .padding(.horizontal, 3)
+                    .font(.system(size: 9, weight: .semibold, design: .rounded))
+                    .foregroundStyle(Color.white.opacity(0.85))
+                    .padding(.horizontal, 4)
                     .padding(.vertical, 1)
-                    .background(RoundedRectangle(cornerRadius: 3).fill(.quaternary))
+                    .background(
+                        RoundedRectangle(cornerRadius: 3)
+                            .fill(Color.white.opacity(0.12))
+                    )
             }
             Text(label)
-                .font(.system(size: 9))
-                .foregroundStyle(.tertiary)
+                .font(.system(size: 10))
+                .foregroundStyle(Color.white.opacity(0.6))
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
         }
     }
 
@@ -647,63 +697,80 @@ struct PickerView: View {
             VStack(spacing: 12) {
                 HStack {
                     Text("Edit Item")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(.white)
                     Spacer()
                     Button(action: { closeEditor() }) {
                         Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(.secondary)
-                            .font(.system(size: 16))
+                            .foregroundStyle(Color.white.opacity(0.55))
+                            .font(.system(size: 18))
                     }
                     .buttonStyle(.plain)
                 }
 
                 ScrollableTextEditor(text: $editText)
-                    .frame(minHeight: 100, maxHeight: 200)
-                    .padding(8)
+                    .frame(minHeight: 120, maxHeight: 220)
+                    .padding(10)
                     .background(
-                        RoundedRectangle(cornerRadius: 6)
-                            .fill(Color.primary.opacity(0.05))
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(Color.black.opacity(0.35))
                     )
                     .overlay(
-                        RoundedRectangle(cornerRadius: 6)
-                            .stroke(Color.accentColor.opacity(0.3), lineWidth: 1)
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(Color.white.opacity(0.12), lineWidth: 1)
                     )
 
-                HStack {
+                HStack(spacing: 10) {
                     Text("\(editText.count) characters")
-                        .font(.system(size: 10))
-                        .foregroundStyle(.tertiary)
+                        .font(.system(size: 11))
+                        .foregroundStyle(Color.white.opacity(0.65))
+                        .lineLimit(1)
+                        .fixedSize(horizontal: true, vertical: false)
 
-                    Spacer()
-
-                    Text("\u{21A9}\u{FE0E} save  \u{238B} cancel")
-                        .font(.system(size: 10))
-                        .foregroundStyle(.tertiary)
-
-                    Spacer()
+                    Spacer(minLength: 8)
 
                     Button("Cancel") {
                         closeEditor()
                     }
                     .buttonStyle(.plain)
-                    .foregroundStyle(.secondary)
-                    .font(.system(size: 13))
+                    .foregroundStyle(Color.white.opacity(0.85))
+                    .font(.system(size: 13, weight: .medium))
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .fixedSize()
 
                     Button(action: { saveEdit(for: item) }) {
                         Text("Save")
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.system(size: 13, weight: .semibold))
                             .foregroundColor(.white)
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 6)
-                            .background(Color.accentColor, in: Capsule())
+                            .padding(.horizontal, 18)
+                            .padding(.vertical, 7)
+                            .background(
+                                LinearGradient(
+                                    colors: [Self.selectionPink, Self.selectionPinkDeep],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                ),
+                                in: Capsule()
+                            )
+                            .shadow(color: Self.selectionPinkDeep.opacity(0.4), radius: 6, y: 2)
                     }
                     .buttonStyle(.plain)
                     .disabled(editText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .opacity(editText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.45 : 1.0)
+                    .fixedSize()
                 }
             }
-            .padding(16)
-            .background(.ultraThickMaterial, in: RoundedRectangle(cornerRadius: 12))
-            .shadow(color: .black.opacity(0.15), radius: 10, y: 4)
+            .padding(18)
+            .background(
+                RoundedRectangle(cornerRadius: 14)
+                    .fill(Color(red: 0.10, green: 0.10, blue: 0.12).opacity(0.92))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 14)
+                    .stroke(Color.white.opacity(0.08), lineWidth: 1)
+            )
+            .shadow(color: .black.opacity(0.45), radius: 24, y: 8)
             .padding(.horizontal, 20)
             .padding(.vertical, 40)
         }
@@ -761,31 +828,121 @@ struct PickerView: View {
     }
 }
 
-// MARK: - Async Image Thumbnail
+// MARK: - Item Thumbnail (uniform 32×32 with source-app badge)
 
-private struct AsyncImageThumbnail: View {
+/// Fixed-size leading icon for every clipboard row. Renders a generic
+/// content-type icon (or an image thumbnail) and overlays the source
+/// app's icon as a small badge in the bottom-right corner.
+private struct ItemThumbnail: View {
     let item: ClipboardItem
     @State private var image: NSImage?
 
+    private static let size: CGFloat = 32
+
     var body: some View {
-        Group {
-            if let img = image {
-                Image(nsImage: img)
+        ZStack(alignment: .bottomTrailing) {
+            base
+                .frame(width: Self.size, height: Self.size)
+
+            if let appIcon = SourceAppIconResolver.shared.icon(for: item.sourceApp) {
+                Image(nsImage: appIcon)
                     .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(maxWidth: 60, maxHeight: 40)
-                    .clipShape(RoundedRectangle(cornerRadius: 4))
-            } else {
-                RoundedRectangle(cornerRadius: 4)
-                    .fill(.quaternary)
-                    .frame(width: 60, height: 40)
+                    .interpolation(.high)
+                    .frame(width: 14, height: 14)
+                    .background(
+                        Circle().fill(Color.black.opacity(0.35))
+                    )
+                    .clipShape(Circle())
+                    .overlay(
+                        Circle().stroke(Color.white.opacity(0.15), lineWidth: 0.5)
+                    )
+                    .offset(x: 3, y: 3)
             }
         }
+        .frame(width: Self.size + 4, height: Self.size + 4, alignment: .center)
         .onAppear {
-            item.loadImageAsync { loaded in
-                image = loaded
+            if item.contentType == .image {
+                item.loadImageAsync { loaded in image = loaded }
             }
         }
+    }
+
+    @ViewBuilder
+    private var base: some View {
+        switch item.contentType {
+        case .image:
+            ZStack {
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(Color.white.opacity(0.06))
+                if let img = image {
+                    Image(nsImage: img)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: Self.size, height: Self.size)
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                } else {
+                    Image(systemName: "photo")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(.secondary)
+                }
+            }
+        case .file, .text, .link:
+            ZStack {
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(Color.white.opacity(0.06))
+                Image(systemName: glyph)
+                    .font(.system(size: 16, weight: .regular))
+                    .foregroundStyle(Color.white.opacity(0.85))
+            }
+        }
+    }
+
+    private var glyph: String {
+        switch item.contentType {
+        case .text: return "doc.text"
+        case .link: return "link"
+        case .file: return "doc"
+        case .image: return "photo"
+        }
+    }
+}
+
+// MARK: - Source App Icon Resolver
+
+/// Resolves a clipboard item's source-app name to its NSImage icon.
+/// Looks up running applications by localizedName and caches the result.
+@MainActor
+private final class SourceAppIconResolver {
+    static let shared = SourceAppIconResolver()
+
+    private var cache: [String: NSImage] = [:]
+    private var negativeCache: Set<String> = []
+
+    private init() {}
+
+    func icon(for appName: String?) -> NSImage? {
+        guard let name = appName, !name.isEmpty else { return nil }
+        if let cached = cache[name] { return cached }
+        if negativeCache.contains(name) { return nil }
+
+        if let running = NSWorkspace.shared.runningApplications
+            .first(where: { $0.localizedName == name }),
+           let icon = running.icon {
+            cache[name] = icon
+            return icon
+        }
+
+        // Fallback: try locating the app bundle by name.  fullPath is
+        // deprecated but still works on every supported macOS version
+        // and is the simplest cross-version lookup.
+        if let path = NSWorkspace.shared.fullPath(forApplication: name) {
+            let icon = NSWorkspace.shared.icon(forFile: path)
+            cache[name] = icon
+            return icon
+        }
+
+        negativeCache.insert(name)
+        return nil
     }
 }
 

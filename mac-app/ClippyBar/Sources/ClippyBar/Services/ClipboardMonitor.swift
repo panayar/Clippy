@@ -81,9 +81,8 @@ final class ClipboardMonitor: ObservableObject {
     private func checkClipboard() {
         guard !isPaused else { return }
 
-        let pasteboard = NSPasteboard.general
-        let currentCount = pasteboard.changeCount
-
+        // changeCount is cheap and main-actor isolated — only this read stays on main.
+        let currentCount = NSPasteboard.general.changeCount
         guard currentCount != lastChangeCount else { return }
         lastChangeCount = currentCount
 
@@ -92,115 +91,31 @@ final class ClipboardMonitor: ObservableObject {
             return
         }
 
-        if let frontApp = NSWorkspace.shared.frontmostApplication?.bundleIdentifier,
-           excludedApps.contains(frontApp) {
+        // NSWorkspace must be accessed from main; capture before dispatching.
+        let frontApp = NSWorkspace.shared.frontmostApplication
+        if let bundleId = frontApp?.bundleIdentifier, excludedApps.contains(bundleId) {
             return
         }
-
-        let sourceApp = NSWorkspace.shared.frontmostApplication?.localizedName
-
-        // Read pasteboard data on main (required by NSPasteboard) but keep it minimal.
-
-        // --- Files: cap at 20 entries, skip files > 500 MB ---
-        let maxFileCount = 20
-        let maxFileSize: UInt64 = 500_000_000 // 500 MB
-
-        let allFileURLs: [URL] = (pasteboard.readObjects(forClasses: [NSURL.self], options: [
-            .urlReadingFileURLsOnly: true
-        ]) as? [URL]) ?? []
-
-        let fileURLs: [String] = Array(allFileURLs.prefix(maxFileCount)).compactMap { url in
-            let path = url.path
-            guard let attrs = try? FileManager.default.attributesOfItem(atPath: path),
-                  let size = attrs[.size] as? UInt64,
-                  size <= maxFileSize else { return nil }
-            return path
-        }
-
-        // Use contains(where:) instead of trimmingCharacters — it short-circuits on
-        // the first non-whitespace char, so it's O(1) for non-empty strings vs O(n).
-        let rawText = pasteboard.string(forType: .string)
-        let hasNonEmptyText = rawText?.contains(where: { !$0.isWhitespace }) ?? false
-
-        // --- Images: only check available types on main thread, defer data read ---
-        let hasText = hasNonEmptyText || !fileURLs.isEmpty
-        let hasImage = !hasText && (pasteboard.availableType(from: [.png, .tiff]) != nil)
+        let sourceApp = frontApp?.localizedName
 
         // Cancel any previously debounced work — only process the latest change.
         pendingWorkItem?.cancel()
 
         let workItem = DispatchWorkItem { [weak self] in
-            guard let self else { return }
+            // ALL pasteboard reads happen on the background queue. With huge
+            // clipboard contents (multi-MB code dumps, large screenshots), the
+            // read+copy can take hundreds of ms — running it on main froze the
+            // cursor / UI on the user's machine. NSPasteboard is safe to read
+            // from a single non-main thread; processingQueue is serial.
+            guard let item = Self.readPasteboardItem(sourceApp: sourceApp) else { return }
 
-            // File copies (e.g. from Finder)
-            if !fileURLs.isEmpty {
-                for path in fileURLs {
-                    let item = ClipboardItem(
-                        content: path,
-                        contentType: .file,
-                        sourceApp: sourceApp
-                    )
-                    Task { @MainActor [weak self] in
-                        self?.store?.addItem(item)
-                    }
-                }
-                return
-            }
-
-            if let text = rawText, hasNonEmptyText {
-                // Cap captured text to avoid slow string ops and memory pressure.
-                let cappedText = text.count > 50_000 ? String(text.prefix(50_000)) : text
-
-                let contentType: ClipboardItem.ContentType =
-                    ClipboardItem.looksLikeURL(cappedText) ? .link : .text
-
-                let item = ClipboardItem(
-                    content: cappedText,
-                    contentType: contentType,
-                    sourceApp: sourceApp
-                )
-
-                Task { @MainActor [weak self] in
-                    self?.store?.addItem(item)
-                }
-                return
-            }
-
-            if hasImage {
-                // Read image data off the main thread via a synchronous
-                // main-queue dispatch — avoids blocking the UI while we
-                // wait, but satisfies NSPasteboard's main-thread requirement.
-                var imageData: Data?
-                DispatchQueue.main.sync {
-                    let pb = NSPasteboard.general
-                    imageData = pb.data(forType: .png) ?? pb.data(forType: .tiff)
-                }
-
-                guard let data = imageData else { return }
-                // Skip images > 5 MB raw — compress / downsample instead
-                let maxRawSize = 5_000_000
-                let dataToSave: Data
-                if data.count > maxRawSize {
-                    // Downsample to a max 1920px dimension and compress as JPEG
-                    if let downsampled = Self.downsampleImageData(data, maxDimension: 1920) {
-                        dataToSave = downsampled
-                    } else {
-                        return // unreadable image, skip
-                    }
-                } else {
-                    dataToSave = data
-                }
-
-                let fileName = UUID().uuidString + ".png"
-                self.saveImageData(dataToSave, fileName: fileName)
-                let item = ClipboardItem(
-                    content: fileName,
-                    contentType: .image,
-                    sourceApp: sourceApp
-                )
-
-                Task { @MainActor [weak self] in
-                    self?.store?.addItem(item)
+            Task { @MainActor [weak self] in
+                guard let store = self?.store else { return }
+                switch item {
+                case .single(let clipItem):
+                    store.addItem(clipItem)
+                case .files(let clipItems):
+                    for clipItem in clipItems { store.addItem(clipItem) }
                 }
             }
         }
@@ -210,6 +125,82 @@ final class ClipboardMonitor: ObservableObject {
         // Debounce: wait 100ms before processing.  If another clipboard change
         // arrives within that window the work item is cancelled above.
         processingQueue.asyncAfter(deadline: .now() + .milliseconds(100), execute: workItem)
+    }
+
+    /// Result of reading the current pasteboard.
+    private enum ReadResult {
+        case single(ClipboardItem)
+        case files([ClipboardItem])
+    }
+
+    /// Reads NSPasteboard.general off the main thread. Caps the size of every
+    /// content type so a single huge copy never causes a UI hitch or OOM.
+    private nonisolated static func readPasteboardItem(sourceApp: String?) -> ReadResult? {
+        let pb = NSPasteboard.general
+
+        // === Files: cap at 20 entries, skip individual files > 500 MB ===
+        let maxFileCount = 20
+        let maxFileSize: UInt64 = 500_000_000
+
+        if let allFileURLs = pb.readObjects(forClasses: [NSURL.self], options: [
+            .urlReadingFileURLsOnly: true
+        ]) as? [URL], !allFileURLs.isEmpty {
+            let fileItems: [ClipboardItem] = Array(allFileURLs.prefix(maxFileCount)).compactMap { url in
+                let path = url.path
+                guard let attrs = try? FileManager.default.attributesOfItem(atPath: path),
+                      let size = attrs[.size] as? UInt64,
+                      size <= maxFileSize else { return nil }
+                return ClipboardItem(content: path, contentType: .file, sourceApp: sourceApp)
+            }
+            if !fileItems.isEmpty {
+                return .files(fileItems)
+            }
+        }
+
+        // === Text: read raw bytes first, truncate, then decode ===
+        // For multi-MB clipboards, this avoids holding the full UTF-8→String
+        // conversion in memory before truncating.
+        if let textData = pb.data(forType: .string) {
+            let maxBytes = 200_000  // ~50K chars typical, with headroom for unicode
+            let bounded = textData.count > maxBytes ? textData.prefix(maxBytes) : textData[...]
+            let rawText = String(decoding: bounded, as: UTF8.self)
+            if rawText.contains(where: { !$0.isWhitespace }) {
+                let cappedText = rawText.count > 50_000 ? String(rawText.prefix(50_000)) : rawText
+                let contentType: ClipboardItem.ContentType =
+                    ClipboardItem.looksLikeURL(cappedText) ? .link : .text
+                return .single(ClipboardItem(
+                    content: cappedText,
+                    contentType: contentType,
+                    sourceApp: sourceApp
+                ))
+            }
+        }
+
+        // === Image ===
+        guard pb.availableType(from: [.png, .tiff]) != nil,
+              let data = pb.data(forType: .png) ?? pb.data(forType: .tiff) else {
+            return nil
+        }
+
+        // Hard cap to avoid OOM — anything over 100 MB raw we just refuse to capture.
+        guard data.count <= 100_000_000 else { return nil }
+
+        let maxRawSize = 5_000_000
+        let dataToSave: Data
+        if data.count > maxRawSize {
+            guard let downsampled = downsampleImageData(data, maxDimension: 1920) else { return nil }
+            dataToSave = downsampled
+        } else {
+            dataToSave = data
+        }
+
+        let fileName = UUID().uuidString + ".png"
+        saveImageData(dataToSave, fileName: fileName)
+        return .single(ClipboardItem(
+            content: fileName,
+            contentType: .image,
+            sourceApp: sourceApp
+        ))
     }
 
     /// Downsample large image data to fit within `maxDimension` and compress
@@ -233,7 +224,7 @@ final class ClipboardMonitor: ObservableObject {
         return rep.representation(using: .jpeg, properties: [.compressionFactor: 0.8])
     }
 
-    private func saveImageData(_ data: Data, fileName: String) {
+    private nonisolated static func saveImageData(_ data: Data, fileName: String) {
         guard let appSupport = FileManager.default.urls(
             for: .applicationSupportDirectory, in: .userDomainMask
         ).first else { return }
